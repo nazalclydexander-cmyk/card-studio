@@ -1,6 +1,8 @@
-import { Suspense } from "react";
 import Link from "next/link";
+import { Suspense } from "react";
 
+import { LogoutButton } from "@/components/logout-button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -12,18 +14,41 @@ import { requireAdmin } from "@/lib/admin";
 
 export const metadata = {
   title: "Admin",
-  description: "Temporary administrator landing page.",
+  description: "Administrator dashboard.",
 };
 
-const adminSections = ["Products", "Categories", "Appearance", "Inquiries"];
+const adminSections = [
+  {
+    title: "Products",
+    href: "/admin/products",
+    description:
+      "Manage products, pricing, visibility, and product images.",
+  },
+  {
+    title: "Categories",
+    href: "/admin/categories",
+    description: "Organize and manage product categories.",
+  },
+  {
+    title: "Appearance",
+    href: "/admin/appearance",
+    description:
+      "Customize branding, colors, fonts, logo, and catalog settings.",
+  },
+  {
+    title: "Inquiries",
+    href: "/admin/inquiries",
+    description: "Review customer inquiries and update their status.",
+  },
+] as const;
 
 function AdminFallback() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {adminSections.map((section) => (
-        <Card key={section}>
+        <Card key={section.title}>
           <CardHeader>
-            <CardTitle>{section}</CardTitle>
+            <CardTitle>{section.title}</CardTitle>
             <CardDescription>Loading…</CardDescription>
           </CardHeader>
         </Card>
@@ -52,35 +77,22 @@ async function AdminContent() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {adminSections.map((section) => (
-        <Card key={section}>
+        <Card
+          key={section.title}
+          className="transition-shadow hover:shadow-sm"
+        >
           <CardHeader>
             <CardTitle>
-              {section === "Products" ? (
-                <Link href="/admin/products" className="hover:underline">
-                  {section}
-                </Link>
-              ) : section === "Categories" ? (
-                <Link href="/admin/categories" className="hover:underline">
-                  {section}
-                </Link>
-              ) : section === "Appearance" ? (
-                <Link href="/admin/appearance" className="hover:underline">
-                  {section}
-                </Link>
-              ) : section === "Inquiries" ? (
-                <Link href="/admin/inquiries" className="hover:underline">
-                  {section}
-                </Link>
-              ) : (
-                section
-              )}
+              <Link href={section.href} className="hover:underline">
+                {section.title}
+              </Link>
             </CardTitle>
-            <CardDescription>Temporary placeholder</CardDescription>
+            <CardDescription>{section.description}</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              CRUD screens will be added in a later milestone.
-            </p>
+            <Button asChild size="sm" variant="outline">
+              <Link href={section.href}>Open section</Link>
+            </Button>
           </CardContent>
         </Card>
       ))}
@@ -92,13 +104,23 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-12">
-        <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Admin Dashboard
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-            Temporary administrator landing page for authorized users only.
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-3">
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Admin Dashboard
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+              Manage the catalog, branding, and customer inquiries from one
+              place.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button asChild variant="outline">
+              <Link href="/">View Website</Link>
+            </Button>
+            <LogoutButton />
+          </div>
         </div>
 
         <Suspense fallback={<AdminFallback />}>
