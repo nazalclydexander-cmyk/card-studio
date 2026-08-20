@@ -1,23 +1,42 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { Suspense } from "react";
+
+import {
+  SiteThemeFallback,
+  SiteThemeProvider,
+} from "@/components/site-theme-provider";
+import { getSiteSettings } from "@/lib/site-settings";
+import { getOptionalSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
-
-const defaultUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
-
-export const metadata: Metadata = {
-  metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
-  description: "The fastest way to build apps with Next.js and Supabase",
-};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   display: "swap",
   subsets: ["latin"],
 });
+
+export async function generateMetadata(): Promise<Metadata> {
+  const siteSettings = await getSiteSettings();
+  const siteOrigin = getOptionalSiteOrigin();
+
+  return {
+    metadataBase: siteOrigin ? new URL(siteOrigin) : undefined,
+    applicationName: siteSettings.site_name,
+    title: {
+      default: siteSettings.site_name,
+      template: `%s | ${siteSettings.site_name}`,
+    },
+    description: siteSettings.tagline,
+    openGraph: {
+      title: siteSettings.site_name,
+      description: siteSettings.tagline,
+      siteName: siteSettings.site_name,
+      type: "website",
+    },
+  };
+}
 
 export default function RootLayout({
   children,
@@ -33,7 +52,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <Suspense fallback={<SiteThemeFallback>{children}</SiteThemeFallback>}>
+            <SiteThemeProvider>{children}</SiteThemeProvider>
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>

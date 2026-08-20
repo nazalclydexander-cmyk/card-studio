@@ -29,6 +29,17 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --site-primary: #8c5e58;
+    --site-secondary: #d9c7b8;
+    --site-accent: #b76e79;
+    --site-background: #faf7f2;
+    --site-surface: #ffffff;
+    --site-text: #2f2522;
+    --site-muted: #6b625c;
+    --site-card-radius: 1rem;
+    --site-button-radius: 0.75rem;
+    --site-font-heading: Georgia, "Times New Roman", Times, serif;
+    --site-font-body: Arial, Helvetica, sans-serif;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -64,5 +75,22 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  .site-theme {
+    min-height: 100vh;
+    background-color: var(--site-background);
+    color: var(--site-text);
+    font-family: var(--site-font-body);
+  }
+
+  .site-theme h1,
+  .site-theme h2,
+  .site-theme h3,
+  .site-theme h4,
+  .site-theme h5,
+  .site-theme h6 {
+    color: var(--site-text);
+    font-family: var(--site-font-heading);
   }
 }

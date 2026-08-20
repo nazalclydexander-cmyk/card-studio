@@ -38,10 +38,13 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
       router.push("/protected");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(
+        error instanceof Error
+          ? "Invalid email or password."
+          : "We couldn't sign you in right now. Please try again.",
+      );
     } finally {
       setIsLoading(false);
     }

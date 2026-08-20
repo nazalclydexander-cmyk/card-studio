@@ -1,32 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Suspense } from "react";
 
+function getAuthErrorMessage(code: string | undefined) {
+  switch (code) {
+    case "invalid_or_expired_link":
+      return "That authentication link is invalid or has expired. Please request a new one and try again.";
+    case "missing_token":
+      return "This authentication link is incomplete. Please request a new one and try again.";
+    default:
+      return "We couldn't complete that authentication step. Please try again.";
+  }
+}
+
 async function ErrorContent({
   searchParams,
 }: {
-  searchParams: Promise<{ error: string }>;
+  searchParams: Promise<{ code?: string }>;
 }) {
   const params = await searchParams;
 
   return (
-    <>
-      {params?.error ? (
-        <p className="text-sm text-muted-foreground">
-          Code error: {params.error}
-        </p>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          An unspecified error occurred.
-        </p>
-      )}
-    </>
+    <p className="text-sm text-muted-foreground">
+      {getAuthErrorMessage(params?.code)}
+    </p>
   );
 }
 
 export default function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ error: string }>;
+  searchParams: Promise<{ code?: string }>;
 }) {
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
