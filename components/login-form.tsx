@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { sanitizeNextPath } from "@/lib/site-url";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 export function LoginForm({
@@ -25,6 +26,7 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +40,8 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
-      router.push("/protected");
+      const nextPath = sanitizeNextPath(searchParams.get("next"), "/admin");
+      router.push(nextPath);
     } catch (error: unknown) {
       setError(
         error instanceof Error

@@ -45,7 +45,7 @@ export function SignUpForm({
         email,
         password,
         options: {
-          emailRedirectTo: buildClientSiteUrl("/protected"),
+          emailRedirectTo: buildClientSiteUrl("/admin"),
         },
       });
       if (error) throw error;
