@@ -7,7 +7,7 @@ import {
   getPrimaryProductImage,
   type PublicProductImage,
 } from "@/lib/public-catalog-shared";
-import { getProductImagePublicUrl } from "@/lib/product-images";
+import { getProductPreviewPublicUrl } from "@/lib/product-images";
 import { cn } from "@/lib/utils";
 
 type ProductImageGalleryProps = {
@@ -46,11 +46,13 @@ export function ProductImageGallery({
   const initialImage =
     getPrimaryProductImage(sortedImages) ?? sortedImages[0] ?? null;
   const [selectedPath, setSelectedPath] = useState<string | null>(
-    initialImage?.storage_path ?? null,
+    initialImage?.preview_path ?? initialImage?.storage_path ?? null,
   );
 
   const selectedImage =
-    sortedImages.find((image) => image.storage_path === selectedPath) ??
+    sortedImages.find(
+      (image) => (image.preview_path ?? image.storage_path) === selectedPath,
+    ) ??
     initialImage;
 
   if (!sortedImages.length || !selectedImage) {
@@ -84,7 +86,7 @@ export function ProductImageGallery({
     );
   }
 
-  const selectedUrl = getProductImagePublicUrl(selectedImage.storage_path);
+  const selectedUrl = getProductPreviewPublicUrl(selectedImage);
 
   return (
     <div className="space-y-4">
@@ -109,6 +111,7 @@ export function ProductImageGallery({
             alt={getImageAltText(selectedImage, productName, 1)}
             fill
             sizes="(max-width: 1024px) 100vw, 56vw"
+            draggable={false}
             className="object-contain p-5"
           />
         ) : null}
@@ -117,8 +120,11 @@ export function ProductImageGallery({
       {sortedImages.length > 1 ? (
         <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
           {sortedImages.map((image, index) => {
-            const imageUrl = getProductImagePublicUrl(image.storage_path);
-            const isSelected = image.storage_path === selectedImage.storage_path;
+            const imageUrl = getProductPreviewPublicUrl(image);
+            const imageKey = image.preview_path ?? image.storage_path;
+            const isSelected =
+              imageKey ===
+              (selectedImage.preview_path ?? selectedImage.storage_path);
 
             if (!imageUrl) {
               return null;
@@ -126,9 +132,9 @@ export function ProductImageGallery({
 
             return (
               <button
-                key={image.storage_path}
+                key={imageKey}
                 type="button"
-                onClick={() => setSelectedPath(image.storage_path)}
+                onClick={() => setSelectedPath(imageKey)}
                 className={cn(
                   "relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border p-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-24 sm:w-24",
                   isSelected && "shadow-sm",
@@ -147,6 +153,7 @@ export function ProductImageGallery({
                   alt={getImageAltText(image, productName, index + 1)}
                   fill
                   sizes="96px"
+                  draggable={false}
                   className="object-contain p-1.5"
                 />
               </button>

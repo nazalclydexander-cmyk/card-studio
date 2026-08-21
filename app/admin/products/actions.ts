@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/admin";
 import {
-  PRODUCT_IMAGES_BUCKET,
-  isValidProductImagePath,
-} from "@/lib/product-images";
+  removeProductImageAssets,
+  uploadProtectedProductImageAssets,
+  validateProductImageFile,
+} from "@/lib/product-image-storage";
 import { createClient } from "@/lib/supabase/server";
 import {
   createInitialProductFormState,
@@ -269,6 +270,20 @@ function mapProductImageErrorToMessage(errorCode: string | null) {
   return "We couldn't save that image change right now. Please try again.";
 }
 
+async function getExistingProductImages(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productId: string,
+) {
+  return supabase
+    .from("product_images")
+    .select(
+      "id, product_id, storage_path, preview_path, alt_text, sort_order, is_primary, created_at",
+    )
+    .eq("product_id", productId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+}
+
 export async function createProductAction(
   _prevState: ProductFormState,
   formData: FormData,
@@ -468,13 +483,7 @@ export async function deleteProductAction(
   redirect("/admin/products?deleted=1");
 }
 
-export async function createProductImageAction({
-  productId,
-  storagePath,
-}: {
-  productId: string;
-  storagePath: string;
-}) {
+export async function uploadProtectedProductImagesAction(formData: FormData) {
   if (!(await ensureAdminAccess())) {
     return {
       success: false,
@@ -482,21 +491,28 @@ export async function createProductImageAction({
     };
   }
 
-  if (!isValidProductImagePath(storagePath) || !storagePath.startsWith(`products/${productId}/`)) {
+  const productId = normalizeTextValue(formData.get("product_id"));
+  const files = formData
+    .getAll("images")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+
+  if (!productId) {
     return {
       success: false,
-      message: "The uploaded image path is invalid.",
+      message: "We couldn't determine which product these images belong to.",
+    };
+  }
+
+  if (!files.length) {
+    return {
+      success: false,
+      message: "Choose at least one image before uploading.",
     };
   }
 
   const supabase = await createClient();
-  const [{ data: existingImages, error: existingImagesError }] = await Promise.all([
-    supabase
-      .from("product_images")
-      .select("id, is_primary, sort_order")
-      .eq("product_id", productId)
-      .order("sort_order", { ascending: true }),
-  ]);
+  const { data: existingImages, error: existingImagesError } =
+    await getExistingProductImages(supabase, productId);
 
   if (existingImagesError) {
     console.error("Failed to inspect existing product images", {
@@ -512,39 +528,123 @@ export async function createProductImageAction({
     };
   }
 
-  const nextSortOrder =
+  let nextSortOrder =
     (existingImages ?? []).reduce((highest, image) => {
       return image.sort_order > highest ? image.sort_order : highest;
     }, -1) + 1;
+  let shouldAssignPrimary = !(existingImages ?? []).some((image) => image.is_primary);
+  let uploadedCount = 0;
+  const failures: string[] = [];
 
-  const shouldBePrimary = !(existingImages ?? []).some((image) => image.is_primary);
-  const { error } = await supabase.from("product_images").insert({
-    product_id: productId,
-    storage_path: storagePath,
-    alt_text: null,
-    sort_order: nextSortOrder,
-    is_primary: shouldBePrimary,
-  });
+  for (const file of files) {
+    const validation = validateProductImageFile(file);
 
-  if (error) {
-    console.error("Failed to create product image record", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
+    if (!validation.success) {
+      failures.push(`${file.name}: ${validation.message}`);
+      continue;
+    }
+
+    const sourceBuffer = Buffer.from(await file.arrayBuffer());
+    const assetResult = await uploadProtectedProductImageAssets({
+      supabase,
+      productId,
+      sourceBuffer,
+      sourceMimeType: file.type,
     });
 
+    if (!assetResult.success) {
+      failures.push(`${file.name}: ${assetResult.message}`);
+      continue;
+    }
+
+    const { data: insertedImage, error } = await supabase
+      .from("product_images")
+      .insert({
+        product_id: productId,
+        storage_path: assetResult.previewPath,
+        preview_path: assetResult.previewPath,
+        alt_text: null,
+        sort_order: nextSortOrder,
+        is_primary: shouldAssignPrimary,
+      })
+      .select("id")
+      .single();
+
+    if (error || !insertedImage?.id) {
+      if (error) {
+        console.error("Failed to create product image record", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+      }
+
+      await removeProductImageAssets({
+        supabase,
+        originalStoragePath: assetResult.originalPath,
+        previewPath: assetResult.previewPath,
+      });
+
+      failures.push(
+        `${file.name}: ${mapProductImageErrorToMessage(error?.code ?? null)}`,
+      );
+      continue;
+    }
+
+    const { error: originalInsertError } = await supabase
+      .from("product_image_originals")
+      .insert({
+        product_image_id: insertedImage.id,
+        storage_path: assetResult.originalPath,
+      });
+
+    if (originalInsertError) {
+      console.error("Failed to save private original metadata", {
+        code: originalInsertError.code,
+        message: originalInsertError.message,
+        details: originalInsertError.details,
+        hint: originalInsertError.hint,
+      });
+
+      await supabase
+        .from("product_images")
+        .delete()
+        .eq("id", insertedImage.id)
+        .eq("product_id", productId);
+
+      await removeProductImageAssets({
+        supabase,
+        originalStoragePath: assetResult.originalPath,
+        previewPath: assetResult.previewPath,
+      });
+
+      failures.push(`${file.name}: The private original metadata could not be saved.`);
+      continue;
+    }
+
+    uploadedCount += 1;
+    nextSortOrder += 1;
+    shouldAssignPrimary = false;
+  }
+
+  if (uploadedCount > 0) {
+    await revalidateProductRoutesForId(productId);
+  }
+
+  if (failures.length > 0) {
     return {
-      success: false,
-      message: mapProductImageErrorToMessage(error.code),
+      success: uploadedCount > 0,
+      message:
+        uploadedCount > 0
+          ? `Uploaded ${uploadedCount} protected image(s). Some files still need attention: ${failures.join(" ")}`
+          : failures.join(" "),
     };
   }
 
-  await revalidateProductRoutesForId(productId);
-
   return {
     success: true,
-    message: "Image uploaded successfully.",
+    message: `Uploaded ${uploadedCount} protected image(s) successfully.`,
   };
 }
 
@@ -709,20 +809,39 @@ export async function deleteProductImageAction({
   }
 
   const supabase = await createClient();
-  const { data: image, error: imageError } = await supabase
-    .from("product_images")
-    .select("id, storage_path, is_primary")
-    .eq("id", imageId)
-    .eq("product_id", productId)
-    .maybeSingle();
+  const [
+    { data: image, error: imageError },
+    { data: originalImage, error: originalImageError },
+  ] = await Promise.all([
+    supabase
+      .from("product_images")
+      .select("id, storage_path, preview_path, is_primary")
+      .eq("id", imageId)
+      .eq("product_id", productId)
+      .maybeSingle(),
+    supabase
+      .from("product_image_originals")
+      .select("storage_path")
+      .eq("product_image_id", imageId)
+      .maybeSingle(),
+  ]);
 
-  if (imageError || !image) {
+  if (imageError || originalImageError || !image) {
     if (imageError) {
       console.error("Failed to load product image for deletion", {
         code: imageError.code,
         message: imageError.message,
         details: imageError.details,
         hint: imageError.hint,
+      });
+    }
+
+    if (originalImageError) {
+      console.error("Failed to load private product image metadata", {
+        code: originalImageError.code,
+        message: originalImageError.message,
+        details: originalImageError.details,
+        hint: originalImageError.hint,
       });
     }
 
@@ -752,13 +871,17 @@ export async function deleteProductImageAction({
     };
   }
 
-  const { error: storageError } = await supabase.storage
-    .from(PRODUCT_IMAGES_BUCKET)
-    .remove([image.storage_path]);
+  const cleanupResult = await removeProductImageAssets({
+    supabase,
+    storagePath: image.storage_path,
+    previewPath: image.preview_path,
+    originalStoragePath: originalImage?.storage_path ?? null,
+  });
 
-  if (storageError) {
+  if (!cleanupResult.success) {
     console.error("Failed to delete product image from storage", {
-      message: storageError.message,
+      imageId,
+      message: cleanupResult.message,
     });
 
     return {

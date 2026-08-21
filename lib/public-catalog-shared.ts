@@ -1,4 +1,4 @@
-import { getProductImagePublicUrl } from "@/lib/product-images";
+import { getProductPreviewPublicUrl } from "@/lib/product-images";
 import type { SiteSettings } from "@/lib/site-settings-config";
 
 export type CategoryRelation =
@@ -23,6 +23,7 @@ export type PublicCategory = {
 
 export type PublicProductImage = {
   storage_path: string;
+  preview_path: string | null;
   alt_text: string | null;
   is_primary: boolean;
   sort_order: number;
@@ -72,7 +73,7 @@ export function getPrimaryProductImage(
 
 export function getPrimaryProductImageUrl(product: PublicProduct) {
   const primaryImage = getPrimaryProductImage(product.images);
-  return primaryImage ? getProductImagePublicUrl(primaryImage.storage_path) : null;
+  return primaryImage ? getProductPreviewPublicUrl(primaryImage) : null;
 }
 
 export function getPrimaryProductImageAlt(product: PublicProduct) {

@@ -121,6 +121,7 @@ async function EditProductContent({
           id,
           product_id,
           storage_path,
+          preview_path,
           alt_text,
           sort_order,
           is_primary,

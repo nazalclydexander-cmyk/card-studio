@@ -5,23 +5,20 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import {
-  createProductImageAction,
   deleteProductImageAction,
   setPrimaryProductImageAction,
+  uploadProtectedProductImagesAction,
   updateProductImageDetailsAction,
 } from "@/app/admin/products/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  PRODUCT_IMAGES_BUCKET,
   PRODUCT_IMAGE_ALLOWED_MIME_TYPES,
   PRODUCT_IMAGE_MAX_FILE_SIZE_BYTES,
-  buildProductImagePath,
-  createProductImageFilename,
+  getProductPreviewPublicUrl,
   type ProductImageRecord,
 } from "@/lib/product-images";
-import { createClient } from "@/lib/supabase/client";
 
 type ProductImagesManagerProps = {
   productId: string;
@@ -36,12 +33,6 @@ type FeedbackState = {
 
 function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
-}
-
-function getImagePublicUrl(storagePath: string) {
-  const supabase = createClient();
-  return supabase.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(storagePath)
-    .data.publicUrl;
 }
 
 function getImageAltText(image: ProductImageRecord, productName: string) {
@@ -86,86 +77,27 @@ export function ProductImagesManager({
     }
 
     setFeedback(null);
-
-    const supabase = createClient();
-    const uploadErrors: string[] = [];
-    const uploadedCount = { current: 0 };
     const form = event.currentTarget;
+    const uploadFormData = new FormData();
+    uploadFormData.set("product_id", productId);
 
     for (const file of Array.from(selectedFiles)) {
-      if (!PRODUCT_IMAGE_ALLOWED_MIME_TYPES.includes(file.type as never)) {
-        uploadErrors.push(
-          `${file.name}: unsupported file type. Use JPG, PNG, or WebP.`,
-        );
-        continue;
-      }
-
-      if (file.size > PRODUCT_IMAGE_MAX_FILE_SIZE_BYTES) {
-        uploadErrors.push(
-          `${file.name}: file is larger than ${formatBytes(PRODUCT_IMAGE_MAX_FILE_SIZE_BYTES)}.`,
-        );
-        continue;
-      }
-
-      const generatedFilename = createProductImageFilename(file.type);
-
-      if (!generatedFilename) {
-        uploadErrors.push(`${file.name}: unsupported file type.`);
-        continue;
-      }
-
-      const storagePath = buildProductImagePath(productId, generatedFilename);
-      const { error: uploadError } = await supabase.storage
-        .from(PRODUCT_IMAGES_BUCKET)
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          contentType: file.type,
-          upsert: false,
-        });
-
-      if (uploadError) {
-        uploadErrors.push(`${file.name}: upload failed. Please try again.`);
-        continue;
-      }
-
-      const metadataResult = await createProductImageAction({
-        productId,
-        storagePath,
-      });
-
-      if (!metadataResult.success) {
-        await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove([storagePath]);
-        uploadErrors.push(
-          `${file.name}: upload succeeded but the image record could not be saved.`,
-        );
-        continue;
-      }
-
-      uploadedCount.current += 1;
+      uploadFormData.append("images", file);
     }
+
+    const result = await uploadProtectedProductImagesAction(uploadFormData);
 
     form.reset();
     setSelectedFiles(null);
 
-    if (uploadedCount.current > 0) {
+    setFeedback({
+      tone: result.success ? "default" : "destructive",
+      message: result.message,
+    });
+
+    if (result.success) {
       router.refresh();
     }
-
-    if (uploadErrors.length > 0) {
-      setFeedback({
-        tone: uploadedCount.current > 0 ? "default" : "destructive",
-        message:
-          uploadedCount.current > 0
-            ? `Uploaded ${uploadedCount.current} image(s). Some files still need attention: ${uploadErrors.join(" ")}`
-            : uploadErrors.join(" "),
-      });
-      return;
-    }
-
-    setFeedback({
-      tone: "default",
-      message: `Uploaded ${uploadedCount.current} image(s) successfully.`,
-    });
   }
 
   function handleDetailsSave(
@@ -258,6 +190,8 @@ export function ProductImagesManager({
           Upload JPG, PNG, or WebP images up to{" "}
           {formatBytes(PRODUCT_IMAGE_MAX_FILE_SIZE_BYTES)} each. The first image
           becomes the primary catalog image automatically when none exists yet.
+          Clean originals stay private, and a protected preview is generated
+          automatically for the storefront.
         </p>
       </div>
 
@@ -301,95 +235,126 @@ export function ProductImagesManager({
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {sortedImages.map((image) => (
-            <article
+            <ProductImageArticle
               key={image.id}
-              className="space-y-4 rounded-xl border p-4"
-            >
-              <div className="aspect-[4/3] overflow-hidden rounded-xl bg-muted/40">
-                <div className="relative h-full w-full">
-                  <Image
-                    src={getImagePublicUrl(image.storage_path)}
-                    alt={getImageAltText(image, productName)}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    className="object-cover"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 text-xs">
-                {image.is_primary ? (
-                  <span className="rounded-full bg-primary px-3 py-1 font-medium text-primary-foreground">
-                    Primary image
-                  </span>
-                ) : (
-                  <span className="rounded-full border px-3 py-1 text-muted-foreground">
-                    Secondary image
-                  </span>
-                )}
-                <span className="rounded-full border px-3 py-1 text-muted-foreground">
-                  Sort order: {image.sort_order}
-                </span>
-              </div>
-
-              <form
-                onSubmit={(event) => handleDetailsSave(event, image.id)}
-                className="grid gap-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor={`alt-text-${image.id}`}>Alt text</Label>
-                  <Input
-                    id={`alt-text-${image.id}`}
-                    name="alt_text"
-                    defaultValue={image.alt_text ?? ""}
-                    maxLength={160}
-                    disabled={isPending}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor={`sort-order-${image.id}`}>Sort order</Label>
-                  <Input
-                    id={`sort-order-${image.id}`}
-                    name="sort_order"
-                    type="number"
-                    min="0"
-                    step="1"
-                    defaultValue={image.sort_order}
-                    disabled={isPending}
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" variant="outline" disabled={isPending}>
-                    Save details
-                  </Button>
-
-                  {!image.is_primary ? (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => handleSetPrimary(image.id)}
-                      disabled={isPending}
-                    >
-                      Make primary
-                    </Button>
-                  ) : null}
-
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => handleDeleteImage(image.id)}
-                    disabled={isPending}
-                  >
-                    Delete image
-                  </Button>
-                </div>
-              </form>
-            </article>
+              image={image}
+              productName={productName}
+              isPending={isPending}
+              onDelete={handleDeleteImage}
+              onSetPrimary={handleSetPrimary}
+              onSave={handleDetailsSave}
+            />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function ProductImageArticle({
+  image,
+  productName,
+  isPending,
+  onDelete,
+  onSetPrimary,
+  onSave,
+}: {
+  image: ProductImageRecord;
+  productName: string;
+  isPending: boolean;
+  onDelete: (imageId: string) => void;
+  onSetPrimary: (imageId: string) => void;
+  onSave: (event: React.FormEvent<HTMLFormElement>, imageId: string) => void;
+}) {
+  const previewUrl = getProductPreviewPublicUrl(image);
+
+  return (
+    <article className="space-y-4 rounded-xl border p-4">
+      <div className="aspect-[4/3] overflow-hidden rounded-xl bg-muted/40">
+        <div className="relative h-full w-full">
+          {previewUrl ? (
+            <Image
+              src={previewUrl}
+              alt={getImageAltText(image, productName)}
+              fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              draggable={false}
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Preview unavailable
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs">
+        {image.is_primary ? (
+          <span className="rounded-full bg-primary px-3 py-1 font-medium text-primary-foreground">
+            Primary image
+          </span>
+        ) : (
+          <span className="rounded-full border px-3 py-1 text-muted-foreground">
+            Secondary image
+          </span>
+        )}
+        <span className="rounded-full border px-3 py-1 text-muted-foreground">
+          Sort order: {image.sort_order}
+        </span>
+      </div>
+
+      <form onSubmit={(event) => onSave(event, image.id)} className="grid gap-4">
+        <div className="space-y-2">
+          <Label htmlFor={`alt-text-${image.id}`}>Alt text</Label>
+          <Input
+            id={`alt-text-${image.id}`}
+            name="alt_text"
+            defaultValue={image.alt_text ?? ""}
+            maxLength={160}
+            disabled={isPending}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`sort-order-${image.id}`}>Sort order</Label>
+          <Input
+            id={`sort-order-${image.id}`}
+            name="sort_order"
+            type="number"
+            min="0"
+            step="1"
+            defaultValue={image.sort_order}
+            disabled={isPending}
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" variant="outline" disabled={isPending}>
+            Save details
+          </Button>
+
+          {!image.is_primary ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onSetPrimary(image.id)}
+              disabled={isPending}
+            >
+              Make primary
+            </Button>
+          ) : null}
+
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => onDelete(image.id)}
+            disabled={isPending}
+          >
+            Delete image
+          </Button>
+        </div>
+      </form>
+    </article>
   );
 }

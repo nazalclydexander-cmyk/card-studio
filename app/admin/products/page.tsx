@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/admin";
-import { getProductImagePublicUrl } from "@/lib/product-images";
+import { getProductPreviewPublicUrl } from "@/lib/product-images";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
@@ -39,6 +39,7 @@ type ProductRecord = {
   product_images:
     | {
         storage_path: string;
+        preview_path: string | null;
         is_primary: boolean;
         sort_order: number;
       }[]
@@ -71,7 +72,7 @@ function formatAdminPrice(priceFrom: number | null) {
 function getProductThumbnail(product: ProductRecord) {
   const primaryImage = (product.product_images ?? [])[0];
 
-  return getProductImagePublicUrl(primaryImage?.storage_path ?? null);
+  return primaryImage ? getProductPreviewPublicUrl(primaryImage) : null;
 }
 
 function ProductThumbnail({
@@ -166,6 +167,7 @@ async function ProductsManagerContent() {
         ),
         product_images (
           storage_path,
+          preview_path,
           is_primary,
           sort_order
         )
