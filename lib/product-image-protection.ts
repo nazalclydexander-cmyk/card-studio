@@ -9,6 +9,19 @@ import {
 
 const DEFAULT_WATERMARK_TEXT = "PREVIEW";
 
+type WatermarkContrastProfile = {
+  brightness: number;
+  lowerQuartileBrightness: number;
+  medianBrightness: number;
+  color: {
+    red: number;
+    green: number;
+    blue: number;
+  };
+  opacity: number;
+  tone: "dark" | "light";
+};
+
 function escapeSvgText(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -16,6 +29,135 @@ function escapeSvgText(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+function clampChannelValue(value: number) {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function formatWatermarkFill({
+  color,
+  opacity,
+}: Pick<WatermarkContrastProfile, "color" | "opacity">) {
+  return `rgba(${clampChannelValue(color.red)}, ${clampChannelValue(color.green)}, ${clampChannelValue(color.blue)}, ${opacity.toFixed(2)})`;
+}
+
+function getPercentileLuminance(values: number[], percentile: number) {
+  if (!values.length) {
+    return 1;
+  }
+
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.round(percentile * (sorted.length - 1))),
+  );
+
+  return sorted[index] ?? 1;
+}
+
+async function analyzePreviewBrightness(previewBuffer: Buffer) {
+  const stats = await sharp(previewBuffer).stats();
+  const [red = { mean: 255 }, green = { mean: 255 }, blue = { mean: 255 }] =
+    stats.channels;
+  const brightness =
+    (0.2126 * red.mean + 0.7152 * green.mean + 0.0722 * blue.mean) / 255;
+
+  const { data, info } = await sharp(previewBuffer)
+    .removeAlpha()
+    .resize({
+      width: 64,
+      height: 64,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const luminanceSamples: number[] = [];
+
+  for (let index = 0; index < data.length; index += info.channels) {
+    const sampleRed = data[index] ?? 255;
+    const sampleGreen = data[index + 1] ?? 255;
+    const sampleBlue = data[index + 2] ?? 255;
+    luminanceSamples.push(
+      (0.2126 * sampleRed + 0.7152 * sampleGreen + 0.0722 * sampleBlue) / 255,
+    );
+  }
+
+  return {
+    brightness,
+    lowerQuartileBrightness: getPercentileLuminance(luminanceSamples, 0.25),
+    medianBrightness: getPercentileLuminance(luminanceSamples, 0.5),
+  };
+}
+
+function getWatermarkContrastProfile({
+  brightness,
+  lowerQuartileBrightness,
+  medianBrightness,
+}: {
+  brightness: number;
+  lowerQuartileBrightness: number;
+  medianBrightness: number;
+}): WatermarkContrastProfile {
+  if (lowerQuartileBrightness <= 0.46 || medianBrightness <= 0.58) {
+    return {
+      brightness,
+      lowerQuartileBrightness,
+      medianBrightness,
+      color: {
+        red: 248,
+        green: 244,
+        blue: 238,
+      },
+      opacity: 0.22,
+      tone: "light",
+    };
+  }
+
+  if (brightness >= 0.72) {
+    return {
+      brightness,
+      lowerQuartileBrightness,
+      medianBrightness,
+      color: {
+        red: 96,
+        green: 84,
+        blue: 76,
+      },
+      opacity: 0.2,
+      tone: "dark",
+    };
+  }
+
+  if (brightness >= 0.55) {
+    return {
+      brightness,
+      lowerQuartileBrightness,
+      medianBrightness,
+      color: {
+        red: 89,
+        green: 77,
+        blue: 70,
+      },
+      opacity: 0.18,
+      tone: "dark",
+    };
+  }
+
+  return {
+    brightness,
+    lowerQuartileBrightness,
+    medianBrightness,
+    color: {
+      red: 248,
+      green: 244,
+      blue: 238,
+    },
+    opacity: 0.22,
+    tone: "light",
+  };
 }
 
 export function getProductPreviewWatermarkText(siteName?: string | null) {
@@ -35,10 +177,12 @@ function createWatermarkSvg({
   width,
   height,
   watermarkText,
+  fill,
 }: {
   width: number;
   height: number;
   watermarkText: string;
+  fill: string;
 }) {
   const escapedWatermarkText = escapeSvgText(watermarkText);
   const letterSpacing = Math.max(3, Math.min(5, Math.round(Math.min(width, height) * 0.0034)));
@@ -77,7 +221,7 @@ function createWatermarkSvg({
             font-size="${fontSize}"
             font-weight="600"
             letter-spacing="${letterSpacing}"
-            fill="rgba(79, 67, 60, 0.16)"
+            fill="${fill}"
             text-anchor="middle"
             dominant-baseline="middle"
           >${escapedWatermarkText}</text>
@@ -117,7 +261,12 @@ export async function createProtectedProductPreview({
     throw new Error("Unable to determine preview dimensions.");
   }
 
-  const watermarked = await sharp(resized.data)
+  const resizedImage = sharp(resized.data);
+  const brightnessAnalysis = await analyzePreviewBrightness(resized.data);
+  const contrastProfile = getWatermarkContrastProfile(brightnessAnalysis);
+  const fill = formatWatermarkFill(contrastProfile);
+
+  const watermarked = await resizedImage
     .composite([
       {
         input: Buffer.from(
@@ -125,6 +274,7 @@ export async function createProtectedProductPreview({
             width,
             height,
             watermarkText,
+            fill,
           }),
         ),
       },
@@ -141,5 +291,13 @@ export async function createProtectedProductPreview({
     height: watermarked.info.height,
     size: watermarked.info.size,
     contentType: "image/webp",
+    watermark: {
+      brightness: contrastProfile.brightness,
+      lowerQuartileBrightness: contrastProfile.lowerQuartileBrightness,
+      medianBrightness: contrastProfile.medianBrightness,
+      fill,
+      opacity: contrastProfile.opacity,
+      tone: contrastProfile.tone,
+    },
   };
 }
