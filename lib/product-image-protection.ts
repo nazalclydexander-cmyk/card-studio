@@ -7,7 +7,7 @@ import {
   PRODUCT_IMAGE_PREVIEW_QUALITY,
 } from "@/lib/product-images";
 
-const DEFAULT_WATERMARK_TEXT = "SAMPLE DESIGN";
+const DEFAULT_WATERMARK_TEXT = "PREVIEW";
 
 function escapeSvgText(value: string) {
   return value
@@ -24,7 +24,7 @@ export function getProductPreviewWatermarkText(siteName?: string | null) {
     .replace(/\s+/g, " ")
     .slice(0, 40);
 
-  if (!normalizedSiteName) {
+  if (!normalizedSiteName || normalizedSiteName.length > 8) {
     return DEFAULT_WATERMARK_TEXT;
   }
 
@@ -41,43 +41,46 @@ function createWatermarkSvg({
   watermarkText: string;
 }) {
   const escapedWatermarkText = escapeSvgText(watermarkText);
-  const primaryFontSize = Math.max(28, Math.round(Math.min(width, height) * 0.055));
-  const secondaryFontSize = Math.max(18, Math.round(primaryFontSize * 0.42));
-  const xStep = Math.max(220, Math.round(width * 0.34));
-  const yStep = Math.max(160, Math.round(height * 0.25));
-  const xStart = -Math.round(width * 0.18);
-  const yStart = -Math.round(height * 0.18);
-  const xEnd = width + Math.round(width * 0.25);
-  const yEnd = height + Math.round(height * 0.25);
+  const letterSpacing = Math.max(3, Math.min(5, Math.round(Math.min(width, height) * 0.0034)));
+  const textWidthTarget = Math.max(
+    110,
+    Math.min(180, Math.round(Math.min(width, height) * 0.15)),
+  );
+  const estimatedCharacterWidth = 0.62;
+  const estimatedTextLength = Math.max(escapedWatermarkText.length, 1);
+  const estimatedLetterSpacingWidth =
+    Math.max(estimatedTextLength - 1, 0) * letterSpacing;
+  const computedFontSize = Math.round(
+    (textWidthTarget - estimatedLetterSpacingWidth) /
+      (estimatedTextLength * estimatedCharacterWidth),
+  );
+  const fontSize = Math.max(
+    20,
+    Math.min(40, Number.isFinite(computedFontSize) ? computedFontSize : 32),
+  );
+  const xStep = Math.max(190, Math.round(textWidthTarget * 1.75));
+  const yStep = Math.max(130, Math.round(fontSize * 3.8));
+  const xStart = -Math.round(xStep * 0.75);
+  const yStart = -Math.round(yStep * 0.9);
+  const xEnd = width + Math.round(xStep * 0.75);
+  const yEnd = height + Math.round(yStep * 0.9);
   const watermarkLines: string[] = [];
 
   for (let y = yStart; y <= yEnd; y += yStep) {
     for (let x = xStart; x <= xEnd; x += xStep) {
       watermarkLines.push(`
-        <g transform="translate(${x} ${y}) rotate(-28)">
+        <g transform="translate(${x} ${y}) rotate(-30)">
           <text
             x="0"
             y="0"
             font-family="Arial, Helvetica, sans-serif"
-            font-size="${primaryFontSize}"
-            font-weight="700"
-            letter-spacing="3"
-            fill="rgba(255,255,255,0.19)"
-            stroke="rgba(15,23,42,0.12)"
-            stroke-width="0.9"
-            paint-order="stroke"
-            text-anchor="middle"
-          >${escapedWatermarkText}</text>
-          <text
-            x="0"
-            y="${secondaryFontSize + 10}"
-            font-family="Arial, Helvetica, sans-serif"
-            font-size="${secondaryFontSize}"
+            font-size="${fontSize}"
             font-weight="600"
-            letter-spacing="4"
-            fill="rgba(15,23,42,0.1)"
+            letter-spacing="${letterSpacing}"
+            fill="rgba(79, 67, 60, 0.16)"
             text-anchor="middle"
-          >PREVIEW ONLY</text>
+            dominant-baseline="middle"
+          >${escapedWatermarkText}</text>
         </g>
       `);
     }
@@ -85,7 +88,6 @@ function createWatermarkSvg({
 
   return `
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${width}" height="${height}" fill="transparent" />
       ${watermarkLines.join("")}
     </svg>
   `;
