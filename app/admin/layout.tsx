@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Suspense } from "react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
 
@@ -8,9 +7,5 @@ type AdminLayoutProps = {
 };
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  return (
-    <Suspense fallback={null}>
-      <AdminShell>{children}</AdminShell>
-    </Suspense>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

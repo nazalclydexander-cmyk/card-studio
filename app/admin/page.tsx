@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Plus, Sparkles } from "lucide-react";
 
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
@@ -14,10 +15,10 @@ import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
+  formatInquirySubmittedAtPht,
   getInquiryContactSummary,
   getInquiryProduct,
   getStatusBadgeClasses,
-  inquiryListDateFormatter,
   type AdminInquiryListItem,
 } from "@/lib/customer-inquiries";
 import { adminNavItems } from "@/components/admin/config";
@@ -65,7 +66,54 @@ function AccessDeniedCard() {
   );
 }
 
-export default async function AdminPage() {
+function DashboardFallback() {
+  return (
+    <div className="space-y-8">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Card key={index} className="shadow-sm">
+            <CardHeader className="space-y-3">
+              <div className="h-4 w-24 rounded bg-muted" />
+              <div className="h-10 w-16 rounded bg-muted" />
+              <div className="h-4 w-36 rounded bg-muted" />
+            </CardHeader>
+          </Card>
+        ))}
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+        <Card className="shadow-sm">
+          <CardHeader>
+            <div className="h-6 w-40 rounded bg-muted" />
+            <div className="h-4 w-56 rounded bg-muted" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="rounded-xl border px-4 py-4">
+                <div className="h-5 w-40 rounded bg-muted" />
+                <div className="mt-2 h-4 w-56 rounded bg-muted" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader>
+            <div className="h-6 w-32 rounded bg-muted" />
+            <div className="h-4 w-52 rounded bg-muted" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-10 rounded bg-muted" />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+async function AdminDashboardContent() {
   const access = await requireAdmin();
 
   if (!access.isAdmin) {
@@ -100,6 +148,8 @@ export default async function AdminPage() {
           phone,
           status,
           created_at,
+          submitter_timezone,
+          submitter_utc_offset_minutes,
           product:products (
             id,
             name,
@@ -130,25 +180,7 @@ export default async function AdminPage() {
   const inquiries = (recentInquiries ?? []) as AdminInquiryListItem[];
 
   return (
-    <div className="space-y-8">
-      <AdminPageHeader
-        title="Admin Dashboard"
-        description="Manage the catalog, storefront appearance, and customer inquiries from one cohesive workspace."
-        actions={
-          <>
-            <Button asChild variant="outline">
-              <Link href="/">View Website</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/admin/products/new">
-                <Plus className="h-4 w-4" />
-                New Product
-              </Link>
-            </Button>
-          </>
-        }
-      />
-
+    <>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCardConfig.map((item) => (
           <Card key={item.key} className="shadow-sm">
@@ -206,9 +238,7 @@ export default async function AdminPage() {
                         {inquiry.status}
                       </Badge>
                       <p className="text-xs text-muted-foreground">
-                        {inquiryListDateFormatter.format(
-                          new Date(inquiry.created_at),
-                        )}
+                        {formatInquirySubmittedAtPht(inquiry.created_at)}
                       </p>
                     </div>
                   </Link>
@@ -268,6 +298,34 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="Admin Dashboard"
+        description="Manage the catalog, storefront appearance, and customer inquiries from one cohesive workspace."
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link href="/">View Website</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/admin/products/new">
+                <Plus className="h-4 w-4" />
+                New Product
+              </Link>
+            </Button>
+          </>
+        }
+      />
+
+      <Suspense fallback={<DashboardFallback />}>
+        <AdminDashboardContent />
+      </Suspense>
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import "server-only";
 
-import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -10,7 +9,7 @@ type AdminAccess = {
   userId: string | null;
 };
 
-export const getAdminAccess = cache(async (): Promise<AdminAccess> => {
+export async function getAdminAccess(): Promise<AdminAccess> {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
 
@@ -47,7 +46,7 @@ export const getAdminAccess = cache(async (): Promise<AdminAccess> => {
     isAdmin: Boolean(adminMembership),
     userId,
   };
-});
+}
 
 export async function isAdmin() {
   const access = await getAdminAccess();
