@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { getAdminCredentials } from "./tests/e2e/helpers/safety";
 
 import {
   assertSafePlaywrightBaseUrl,
@@ -7,6 +8,7 @@ import {
 } from "./tests/e2e/helpers/safety";
 
 const baseURL = getPlaywrightBaseUrl();
+const adminCredentials = getAdminCredentials();
 
 assertSafePlaywrightBaseUrl(baseURL);
 
@@ -32,7 +34,16 @@ export default defineConfig({
     : undefined,
   projects: [
     {
+      name: "setup-admin",
+      testMatch: /admin-auth\.setup\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+      },
+    },
+    {
       name: "desktop-chromium",
+      testIgnore: [/admin\.spec\.ts/, /admin-auth\.setup\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
@@ -40,6 +51,7 @@ export default defineConfig({
     },
     {
       name: "tablet-chromium",
+      testIgnore: [/admin\.spec\.ts/, /admin-auth\.setup\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 768, height: 1024 },
@@ -47,9 +59,46 @@ export default defineConfig({
     },
     {
       name: "mobile-chromium",
+      testIgnore: [/admin\.spec\.ts/, /admin-auth\.setup\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 375, height: 812 },
+      },
+    },
+    {
+      name: "admin-desktop",
+      dependencies: ["setup-admin"],
+      testMatch: /admin\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        ...(adminCredentials.configured
+          ? { storageState: ".playwright/auth/admin.json" }
+          : {}),
+      },
+    },
+    {
+      name: "admin-tablet",
+      dependencies: ["setup-admin"],
+      testMatch: /admin\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 768, height: 1024 },
+        ...(adminCredentials.configured
+          ? { storageState: ".playwright/auth/admin.json" }
+          : {}),
+      },
+    },
+    {
+      name: "admin-mobile",
+      dependencies: ["setup-admin"],
+      testMatch: /admin\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 375, height: 812 },
+        ...(adminCredentials.configured
+          ? { storageState: ".playwright/auth/admin.json" }
+          : {}),
       },
     },
   ],

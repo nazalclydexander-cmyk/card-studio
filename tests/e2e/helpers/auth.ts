@@ -1,5 +1,4 @@
 import { expect, type Page } from "@playwright/test";
-
 import { getAdminCredentials } from "./safety";
 
 export async function loginAsAdmin(page: Page) {
@@ -18,5 +17,7 @@ export async function loginAsAdmin(page: Page) {
   await page.getByLabel(/^password$/i).fill(credentials.password);
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL("**/admin");
-  await expect(page.getByRole("heading", { name: /admin dashboard/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: /admin dashboard/i }),
+  ).toBeVisible();
 }
