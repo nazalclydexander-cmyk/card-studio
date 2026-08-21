@@ -4,8 +4,11 @@ import { Suspense } from "react";
 
 import { CatalogFilters } from "@/components/public/catalog-filters";
 import { ProductCard } from "@/components/public/product-card";
+import { PublicContainer } from "@/components/public/public-container";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import { PublicPageHeader } from "@/components/public/public-page-header";
+import { ProductGrid } from "@/components/public/product-grid";
 import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,17 +36,17 @@ function getShellCardStyle(): CSSProperties {
   return {
     backgroundColor: "var(--site-surface)",
     borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
-    borderRadius: "var(--site-card-radius)",
+    borderRadius: "calc(var(--site-card-radius) + 0.15rem)",
   };
 }
 
 function ProductsFallback() {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+    <ProductGrid>
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-[calc(var(--site-card-radius)+0.1rem)] border"
+          className="overflow-hidden border shadow-sm"
           style={getShellCardStyle()}
         >
           <div className="aspect-[4/3] bg-muted/60" />
@@ -55,7 +58,7 @@ function ProductsFallback() {
           </div>
         </div>
       ))}
-    </div>
+    </ProductGrid>
   );
 }
 
@@ -112,12 +115,12 @@ async function ProductsContent({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <p
-            className="text-sm uppercase tracking-[0.24em]"
+            className="text-sm uppercase tracking-[0.22em]"
             style={{ color: "var(--site-accent)" }}
           >
             {catalogData.selectedCategory?.name ?? "All designs"}
           </p>
-          <h2 className="text-3xl">
+          <h2 className="text-2xl sm:text-3xl">
             {catalogData.productsError
               ? "Catalog unavailable"
               : `${catalogData.products.length} design${
@@ -134,7 +137,7 @@ async function ProductsContent({
       </div>
 
       {catalogData.products.length > 0 ? (
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <ProductGrid className="2xl:grid-cols-3">
           {catalogData.products.map((product) => (
             <ProductCard
               key={product.id}
@@ -142,7 +145,7 @@ async function ProductsContent({
               siteSettings={siteSettings}
             />
           ))}
-        </div>
+        </ProductGrid>
       ) : catalogData.productsError ? (
         <PublicStateCard
           title="We couldn't load the collection right now"
@@ -152,6 +155,8 @@ async function ProductsContent({
         <PublicStateCard
           title="No matching designs yet"
           description="Try another category or search phrase, or clear the current filters to browse the full collection."
+          actionHref="/products"
+          actionLabel="Reset filters"
         />
       )}
     </div>
@@ -163,34 +168,20 @@ async function ProductsPageContent({ searchParams }: ProductsPageProps) {
 
   return (
     <>
-      <PublicHeader siteSettings={siteSettings} />
+      <PublicHeader siteSettings={siteSettings} currentPath="/products" />
 
       <main className="min-h-screen">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-12">
-          <div className="space-y-3">
-            <p
-              className="text-sm font-semibold uppercase tracking-[0.28em]"
-              style={{ color: "var(--site-accent)" }}
-            >
-              Collection
-            </p>
-            <h1 className="text-4xl sm:text-5xl">
-              Invitation and greeting card designs
-            </h1>
-            <p
-              className="max-w-3xl text-sm leading-6 sm:text-base"
-              style={{ color: "var(--site-muted)" }}
-            >
-              Explore elegant, customizable designs for weddings, birthdays,
-              christenings, debuts, greeting cards, and other meaningful
-              celebrations.
-            </p>
-          </div>
+        <PublicContainer className="flex w-full flex-col gap-8 py-10 sm:py-12">
+          <PublicPageHeader
+            eyebrow="Collection"
+            title="Invitation and greeting card designs"
+            description="Browse elegant, image-led designs for weddings, birthdays, christenings, debuts, greeting cards, and other meaningful celebrations."
+          />
 
           <Suspense fallback={<ProductsFallback />}>
             <ProductsContent searchParams={searchParams} />
           </Suspense>
-        </div>
+        </PublicContainer>
       </main>
 
       <PublicFooter siteSettings={siteSettings} />
@@ -203,14 +194,14 @@ export default function ProductsPage({ searchParams }: ProductsPageProps) {
     <Suspense
       fallback={
         <main className="min-h-screen">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-12">
+          <PublicContainer className="flex w-full flex-col gap-8 py-10 sm:py-12">
             <div className="space-y-3">
               <div className="h-4 w-40 rounded bg-muted" />
               <div className="h-12 w-80 rounded bg-muted" />
               <div className="h-5 w-full max-w-2xl rounded bg-muted" />
             </div>
             <ProductsFallback />
-          </div>
+          </PublicContainer>
         </main>
       }
     >

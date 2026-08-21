@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { submitCustomerInquiryAction } from "@/app/contact/actions";
+import { AdminNotice } from "@/components/admin/admin-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +41,7 @@ export function ContactInquiryForm({
   const values = state.values;
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-8">
       <input
         type="hidden"
         name="product_slug"
@@ -58,13 +59,9 @@ export function ContactInquiryForm({
         />
       </div>
 
-      {state.message ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {state.message}
-        </div>
-      ) : null}
+      {state.message ? <AdminNotice tone="error">{state.message}</AdminNotice> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="customer_name">Name *</Label>
           <Input
@@ -74,6 +71,7 @@ export function ContactInquiryForm({
             required
             maxLength={120}
             autoComplete="name"
+            className="h-11"
           />
           <FieldError message={state.fieldErrors.customer_name} />
         </div>
@@ -87,6 +85,7 @@ export function ContactInquiryForm({
             defaultValue={values.email}
             maxLength={254}
             autoComplete="email"
+            className="h-11"
           />
           <FieldError message={state.fieldErrors.email} />
         </div>
@@ -99,6 +98,7 @@ export function ContactInquiryForm({
             defaultValue={values.phone}
             maxLength={40}
             autoComplete="tel"
+            className="h-11"
           />
           <FieldError message={state.fieldErrors.phone} />
         </div>
@@ -106,7 +106,7 @@ export function ContactInquiryForm({
 
       <FieldError message={state.fieldErrors.contact_method} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="event_date">Event Date</Label>
           <Input
@@ -115,6 +115,7 @@ export function ContactInquiryForm({
             type="date"
             defaultValue={values.event_date}
             autoComplete="off"
+            className="h-11"
           />
           <FieldError message={state.fieldErrors.event_date} />
         </div>
@@ -129,6 +130,7 @@ export function ContactInquiryForm({
             step="1"
             defaultValue={values.quantity}
             inputMode="numeric"
+            className="h-11"
           />
           <FieldError message={state.fieldErrors.quantity} />
         </div>
@@ -142,12 +144,12 @@ export function ContactInquiryForm({
           defaultValue={values.message}
           required
           maxLength={2000}
-          className="min-h-[180px]"
+          className="min-h-[190px]"
         />
         <FieldError message={state.fieldErrors.message} />
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="space-y-3 border-t pt-5">
         <Button
           type="submit"
           disabled={pending}
@@ -160,8 +162,8 @@ export function ContactInquiryForm({
           {pending ? "Submitting..." : "Submit inquiry"}
         </Button>
         <p className="text-sm text-muted-foreground">
-          Basic spam protection is included. Production CAPTCHA/rate limiting can
-          be added later if needed.
+          Basic spam protection is included. Production CAPTCHA or rate limiting
+          can be added later if needed.
         </p>
       </div>
     </form>

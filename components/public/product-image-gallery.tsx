@@ -8,6 +8,7 @@ import {
   type PublicProductImage,
 } from "@/lib/public-catalog-shared";
 import { getProductImagePublicUrl } from "@/lib/product-images";
+import { cn } from "@/lib/utils";
 
 type ProductImageGalleryProps = {
   images: PublicProductImage[] | null;
@@ -55,9 +56,10 @@ export function ProductImageGallery({
   if (!sortedImages.length || !selectedImage) {
     return (
       <div
-        className="flex aspect-[4/3] items-center justify-center rounded-[calc(var(--site-card-radius)+0.25rem)] border border-dashed border-black/10 px-6 text-center text-sm shadow-sm"
+        className="flex aspect-[4/3] items-center justify-center rounded-[calc(var(--site-card-radius)+0.3rem)] border border-dashed px-6 text-center text-sm shadow-sm"
         style={{
-          backgroundColor: "color-mix(in srgb, var(--site-secondary) 12%, white)",
+          backgroundColor:
+            "color-mix(in srgb, var(--site-secondary) 10%, white)",
           color: "var(--site-muted)",
         }}
       >
@@ -71,9 +73,10 @@ export function ProductImageGallery({
   return (
     <div className="space-y-4">
       <div
-        className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[calc(var(--site-card-radius)+0.25rem)] border p-4 shadow-sm"
+        className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[calc(var(--site-card-radius)+0.3rem)] border px-5 py-6 shadow-sm sm:px-6"
         style={{
-          backgroundColor: "color-mix(in srgb, var(--site-secondary) 12%, white)",
+          backgroundColor:
+            "color-mix(in srgb, var(--site-secondary) 10%, white)",
           borderColor: "color-mix(in srgb, var(--site-text) 8%, transparent)",
         }}
       >
@@ -82,14 +85,14 @@ export function ProductImageGallery({
             src={selectedUrl}
             alt={getImageAltText(selectedImage, productName, 1)}
             fill
-            sizes="(max-width: 1024px) 100vw, 50vw"
+            sizes="(max-width: 1024px) 100vw, 56vw"
             className="object-contain p-4"
           />
         ) : null}
       </div>
 
       {sortedImages.length > 1 ? (
-        <div className="flex gap-3 overflow-x-auto pb-1">
+        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
           {sortedImages.map((image, index) => {
             const imageUrl = getProductImagePublicUrl(image.storage_path);
             const isSelected = image.storage_path === selectedImage.storage_path;
@@ -103,7 +106,10 @@ export function ProductImageGallery({
                 key={image.storage_path}
                 type="button"
                 onClick={() => setSelectedPath(image.storage_path)}
-                className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border p-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={cn(
+                  "relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border p-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-24 sm:w-24",
+                  isSelected && "shadow-sm",
+                )}
                 style={{
                   borderColor: isSelected
                     ? "var(--site-primary)"
@@ -117,8 +123,8 @@ export function ProductImageGallery({
                   src={imageUrl}
                   alt={getImageAltText(image, productName, index + 1)}
                   fill
-                  sizes="80px"
-                  className="object-contain p-1"
+                  sizes="96px"
+                  className="object-contain p-1.5"
                 />
               </button>
             );

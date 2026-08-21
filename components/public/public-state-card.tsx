@@ -20,15 +20,17 @@ export function PublicStateCard({
 }: PublicStateCardProps) {
   return (
     <Card
+      className="rounded-[calc(var(--site-card-radius)+0.15rem)] shadow-sm"
       style={{
         backgroundColor: "var(--site-surface)",
         borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
-        borderRadius: "var(--site-card-radius)",
       }}
     >
-      <CardHeader>
+      <CardHeader className="space-y-3">
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardDescription className="max-w-2xl leading-6">
+          {description}
+        </CardDescription>
       </CardHeader>
       {actionHref && actionLabel ? (
         <div className="px-6 pb-6">

@@ -3,8 +3,10 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { ContactInquiryForm } from "@/components/public/contact-inquiry-form";
+import { PublicContainer } from "@/components/public/public-container";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import { PublicPageHeader } from "@/components/public/public-page-header";
 import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,11 +32,11 @@ type ContactPageProps = {
 function ContactFallback() {
   return (
     <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-12">
+      <PublicContainer className="flex w-full flex-col gap-8 py-10 sm:py-12">
         <div className="h-4 w-40 rounded bg-muted" />
         <div className="h-14 w-full max-w-2xl rounded bg-muted" />
         <div className="h-80 w-full rounded bg-muted/60" />
-      </div>
+      </PublicContainer>
     </main>
   );
 }
@@ -52,14 +54,13 @@ function ProductContextCard({
 
   return (
     <div
-      className="grid gap-4 rounded-[calc(var(--site-card-radius)+0.1rem)] border p-4 shadow-sm sm:grid-cols-[96px_minmax(0,1fr)]"
+      className="grid gap-4 rounded-[calc(var(--site-card-radius)+0.1rem)] border bg-[color:var(--site-surface)] p-4 shadow-sm sm:grid-cols-[112px_minmax(0,1fr)] sm:p-5"
       style={{
-        backgroundColor: "var(--site-surface)",
         borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
       }}
     >
       <div
-        className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl border"
+        className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border"
         style={{
           backgroundColor: "color-mix(in srgb, var(--site-secondary) 12%, white)",
           borderColor: "color-mix(in srgb, var(--site-text) 8%, transparent)",
@@ -70,7 +71,7 @@ function ProductContextCard({
             src={imageUrl}
             alt={product.name}
             fill
-            sizes="96px"
+            sizes="112px"
             className="object-contain p-2"
           />
         ) : (
@@ -82,7 +83,7 @@ function ProductContextCard({
 
       <div className="space-y-2">
         <p
-          className="text-sm font-semibold uppercase tracking-[0.24em]"
+          className="text-sm font-semibold uppercase tracking-[0.22em]"
           style={{ color: "var(--site-accent)" }}
         >
           You&apos;re inquiring about
@@ -118,16 +119,15 @@ function ContactInformationCard({
 
   return (
     <aside
-      className="space-y-6 rounded-[calc(var(--site-card-radius)+0.15rem)] border p-6 shadow-sm"
+      className="space-y-6 rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] p-6 shadow-sm"
       style={{
-        backgroundColor: "var(--site-surface)",
         borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
       }}
     >
       {hasContactInfo ? (
         <div className="space-y-4">
           <div className="space-y-1">
-            <h2 className="text-2xl">Contact Information</h2>
+            <h2 className="text-2xl">Contact information</h2>
             <p className="text-sm" style={{ color: "var(--site-muted)" }}>
               Reach out directly using any available channel below.
             </p>
@@ -172,7 +172,7 @@ function ContactInformationCard({
 
       {hasSocialLinks ? (
         <div className="space-y-3 text-sm">
-          <h3 className="text-lg font-semibold">Follow Us</h3>
+          <h3 className="text-lg font-semibold">Follow us</h3>
           <div className="flex flex-col gap-2">
             {siteSettings.facebook_url ? (
               <a
@@ -221,27 +221,17 @@ async function ContactContent({ searchParams }: ContactPageProps) {
 
   return (
     <>
-      <PublicHeader siteSettings={siteSettings} />
+      <PublicHeader siteSettings={siteSettings} currentPath="/contact" />
 
       <main className="min-h-screen">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-12">
-          <div className="space-y-3">
-            <p
-              className="text-sm font-semibold uppercase tracking-[0.28em]"
-              style={{ color: "var(--site-accent)" }}
-            >
-              Contact
-            </p>
-            <h1 className="text-4xl sm:text-5xl">Let&apos;s talk about your design</h1>
-            <p
-              className="max-w-3xl text-sm leading-6 sm:text-base"
-              style={{ color: "var(--site-muted)" }}
-            >
-              Tell us a little about the invitation or greeting card design
-              you&apos;re interested in, and we&apos;ll follow up using the
-              contact details you provide.
-            </p>
-          </div>
+        <PublicContainer className="flex w-full flex-col gap-8 py-10 sm:py-12">
+          <PublicPageHeader
+            eyebrow="Contact"
+            title={"Let's talk about your design"}
+            description={
+              "Tell us about the invitation or greeting card design you're considering, and we'll follow up using the contact details you provide."
+            }
+          />
 
           {productResult.hasError ? (
             <PublicStateCard
@@ -264,9 +254,8 @@ async function ContactContent({ searchParams }: ContactPageProps) {
 
           {submitted ? (
             <div
-              className="rounded-[calc(var(--site-card-radius)+0.15rem)] border px-6 py-10 shadow-sm"
+              className="rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] px-6 py-10 shadow-sm"
               style={{
-                backgroundColor: "var(--site-surface)",
                 borderColor:
                   "color-mix(in srgb, var(--site-text) 10%, transparent)",
               }}
@@ -304,22 +293,28 @@ async function ContactContent({ searchParams }: ContactPageProps) {
               </div>
             </div>
           ) : (
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-start">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
               <div
-                className="rounded-[calc(var(--site-card-radius)+0.15rem)] border p-6 shadow-sm"
+                className="rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] p-6 shadow-sm sm:p-7"
                 style={{
-                  backgroundColor: "var(--site-surface)",
                   borderColor:
                     "color-mix(in srgb, var(--site-text) 10%, transparent)",
                 }}
               >
+                <div className="mb-6 space-y-2">
+                  <h2 className="text-2xl">Inquiry form</h2>
+                  <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
+                    Share your design preference, event details, and quantity so
+                    we can respond with the right next steps.
+                  </p>
+                </div>
                 <ContactInquiryForm productSlug={product?.slug ?? null} />
               </div>
 
               <ContactInformationCard siteSettings={siteSettings} />
             </div>
           )}
-        </div>
+        </PublicContainer>
       </main>
 
       <PublicFooter siteSettings={siteSettings} />
