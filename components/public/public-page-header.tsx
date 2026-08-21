@@ -28,7 +28,7 @@ export function PublicPageHeader({
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="max-w-4xl text-4xl leading-tight sm:text-5xl lg:text-[3.35rem] lg:leading-[1.05]">
+        <h1 className="max-w-4xl text-4xl leading-tight sm:text-5xl lg:text-[3rem] lg:leading-[1.08]">
           {title}
         </h1>
         {description ? (

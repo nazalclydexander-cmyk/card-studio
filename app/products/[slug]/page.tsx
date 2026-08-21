@@ -350,11 +350,11 @@ async function ProductDetailContent({ params }: ProductDetailPageProps) {
               >
                 Related designs
               </p>
-              <h2 className="text-3xl sm:text-4xl">You may also like</h2>
+              <h2 className="text-3xl sm:text-[2.2rem]">You may also like</h2>
             </div>
 
             {relatedProductsResult.products.length > 0 ? (
-              <ProductGrid className="2xl:grid-cols-4">
+              <ProductGrid className="2xl:grid-cols-3">
                 {relatedProductsResult.products.map((relatedProduct) => (
                   <ProductCard
                     key={relatedProduct.id}

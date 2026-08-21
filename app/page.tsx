@@ -251,7 +251,7 @@ async function HomeContent() {
               >
                 Featured products
               </p>
-              <h2 className="text-3xl sm:text-4xl">A few elegant favorites</h2>
+              <h2 className="text-3xl sm:text-[2.2rem]">A few elegant favorites</h2>
               <p
                 className="max-w-2xl text-base leading-7"
                 style={{ color: "var(--site-muted)" }}
@@ -304,7 +304,7 @@ async function HomeContent() {
                 >
                   Let&apos;s plan your design
                 </p>
-                <h2 className="text-3xl sm:text-4xl">
+                <h2 className="text-3xl sm:text-[2.2rem]">
                   Start with a design you love, then tell us about your event
                 </h2>
                 <p
