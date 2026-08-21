@@ -8,7 +8,7 @@ import {
   SiteThemeProvider,
 } from "@/components/site-theme-provider";
 import { getSiteSettings } from "@/lib/site-settings";
-import { getOptionalSiteOrigin } from "@/lib/site-url";
+import { getSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,10 +19,10 @@ const geistSans = Geist({
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteSettings = await getSiteSettings();
-  const siteOrigin = getOptionalSiteOrigin();
+  const siteOrigin = getSiteOrigin();
 
   return {
-    metadataBase: siteOrigin ? new URL(siteOrigin) : undefined,
+    metadataBase: new URL(siteOrigin),
     applicationName: siteSettings.site_name,
     title: {
       default: siteSettings.site_name,
