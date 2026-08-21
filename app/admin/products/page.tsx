@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { toggleProductActiveAction } from "@/app/admin/products/actions";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/admin";
+import { getProductImagePublicUrl } from "@/lib/product-images";
 import { createClient } from "@/lib/supabase/server";
-import { toggleProductActiveAction } from "@/app/admin/products/actions";
 
 export const metadata = {
   title: "Admin Products",
@@ -22,6 +25,25 @@ export const metadata = {
 const createdAtFormatter = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "medium",
 });
+
+type ProductRecord = {
+  id: string;
+  name: string;
+  price_from: number | null;
+  show_price: boolean;
+  active: boolean;
+  featured: boolean;
+  customizable: boolean;
+  created_at: string;
+  category: { name: string | null } | { name: string | null }[] | null;
+  product_images:
+    | {
+        storage_path: string;
+        is_primary: boolean;
+        sort_order: number;
+      }[]
+    | null;
+};
 
 function getCategoryName(
   category: { name: string | null } | { name: string | null }[] | null,
@@ -46,6 +68,40 @@ function formatAdminPrice(priceFrom: number | null) {
   }).format(priceFrom);
 }
 
+function getProductThumbnail(product: ProductRecord) {
+  const primaryImage = (product.product_images ?? [])[0];
+
+  return getProductImagePublicUrl(primaryImage?.storage_path ?? null);
+}
+
+function ProductThumbnail({
+  product,
+  className,
+}: {
+  product: ProductRecord;
+  className?: string;
+}) {
+  const thumbnailUrl = getProductThumbnail(product);
+
+  if (!thumbnailUrl) {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-xl border bg-muted/40 text-xs text-muted-foreground ${className ?? ""}`}
+      >
+        No image
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`rounded-xl border bg-cover bg-center bg-no-repeat ${className ?? ""}`}
+      style={{ backgroundImage: `url("${thumbnailUrl}")` }}
+    />
+  );
+}
+
 function AccessDeniedCard() {
   return (
     <Card>
@@ -64,7 +120,7 @@ function ProductsLoading() {
   return (
     <div className="space-y-4">
       {Array.from({ length: 3 }).map((_, index) => (
-        <Card key={index}>
+        <Card key={index} className="shadow-sm">
           <CardHeader>
             <div className="h-6 w-48 rounded bg-muted" />
             <div className="h-4 w-32 rounded bg-muted" />
@@ -93,7 +149,7 @@ async function ProductsManagerContent() {
   }
 
   const supabase = await createClient();
-  const { data: products, error } = await supabase
+  const { data, error } = await supabase
     .from("products")
     .select(
       `
@@ -107,11 +163,24 @@ async function ProductsManagerContent() {
         created_at,
         category:categories!products_category_id_fkey (
           name
+        ),
+        product_images (
+          storage_path,
+          is_primary,
+          sort_order
         )
       `,
     )
     .order("featured", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("is_primary", {
+      foreignTable: "product_images",
+      ascending: false,
+    })
+    .order("sort_order", {
+      foreignTable: "product_images",
+      ascending: true,
+    });
 
   if (error) {
     console.error("Failed to load admin products", {
@@ -134,35 +203,33 @@ async function ProductsManagerContent() {
     );
   }
 
-  if (!products?.length) {
+  const products = (data ?? []) as ProductRecord[];
+
+  if (!products.length) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>No products yet</CardTitle>
-          <CardDescription>
-            Create your first catalog product to start managing the inventory.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <AdminEmptyState
+        title="No products yet"
+        description="Create your first catalog product to start managing inventory, pricing, and visibility."
+        action={
           <Button asChild>
             <Link href="/admin/products/new">Create product</Link>
           </Button>
-        </CardContent>
-      </Card>
+        }
+      />
     );
   }
 
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-xl border lg:block">
+      <div className="hidden overflow-hidden rounded-2xl border bg-background shadow-sm lg:block">
         <table className="min-w-full divide-y">
           <thead className="bg-muted/40">
             <tr className="text-left text-sm text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Product</th>
               <th className="px-4 py-3 font-medium">Category</th>
               <th className="px-4 py-3 font-medium">Price</th>
-              <th className="px-4 py-3 font-medium">Visibility</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Featured</th>
               <th className="px-4 py-3 font-medium">Created</th>
               <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
@@ -173,37 +240,42 @@ async function ProductsManagerContent() {
 
               return (
                 <tr key={product.id} className="align-top text-sm">
-                  <td className="space-y-2 px-4 py-4">
-                    <p className="font-medium">{product.name}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {product.featured ? <Badge>Featured</Badge> : null}
-                      {product.customizable ? (
-                        <Badge variant="secondary">Customizable</Badge>
-                      ) : (
-                        <Badge variant="outline">Fixed design</Badge>
-                      )}
+                  <td className="px-4 py-4">
+                    <div className="flex items-start gap-4">
+                      <ProductThumbnail
+                        product={product}
+                        className="h-16 w-16 shrink-0"
+                      />
+                      <div className="space-y-2">
+                        <p className="font-medium">{product.name}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant={product.show_price ? "secondary" : "outline"}>
+                            {product.show_price ? "Price shown" : "Price hidden"}
+                          </Badge>
+                          <Badge
+                            variant={product.customizable ? "secondary" : "outline"}
+                          >
+                            {product.customizable
+                              ? "Customizable"
+                              : "Fixed design"}
+                          </Badge>
+                        </div>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-4 py-4">
-                    {categoryName ?? "Uncategorized"}
-                  </td>
-                  <td className="px-4 py-4">
-                    {formatAdminPrice(product.price_from)}
-                  </td>
+                  <td className="px-4 py-4">{categoryName}</td>
+                  <td className="px-4 py-4">{formatAdminPrice(product.price_from)}</td>
                   <td className="space-y-2 px-4 py-4">
-                    {product.show_price ? (
-                      <Badge variant="secondary">Price shown</Badge>
-                    ) : (
-                      <Badge variant="outline">Price hidden</Badge>
-                    )}
-                    {product.active ? (
-                      <Badge variant="secondary">Active</Badge>
-                    ) : (
-                      <Badge variant="destructive">Inactive</Badge>
-                    )}
+                    <Badge variant={product.active ? "secondary" : "destructive"}>
+                      {product.active ? "Active" : "Inactive"}
+                    </Badge>
                   </td>
                   <td className="px-4 py-4">
-                    {product.active ? "Visible publicly" : "Hidden publicly"}
+                    {product.featured ? (
+                      <Badge>Featured</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">Standard</span>
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     {createdAtFormatter.format(new Date(product.created_at))}
@@ -249,41 +321,44 @@ async function ProductsManagerContent() {
           const categoryName = getCategoryName(product.category);
 
           return (
-            <Card key={product.id}>
-              <CardHeader className="space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <CardTitle className="text-xl">{product.name}</CardTitle>
-                    <CardDescription>
-                      {categoryName ?? "Uncategorized"}
-                    </CardDescription>
+            <Card key={product.id} className="shadow-sm">
+              <CardContent className="space-y-4 p-5">
+                <div className="flex items-start gap-4">
+                  <ProductThumbnail
+                    product={product}
+                    className="h-20 w-20 shrink-0"
+                  />
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-medium">{product.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {categoryName}
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Badge variant={product.active ? "secondary" : "destructive"}>
+                        {product.active ? "Active" : "Inactive"}
+                      </Badge>
+                      {product.featured ? <Badge>Featured</Badge> : null}
+                    </div>
                   </div>
-                  {product.active ? (
-                    <Badge variant="secondary">Active</Badge>
-                  ) : (
-                    <Badge variant="destructive">Inactive</Badge>
-                  )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {product.featured ? <Badge>Featured</Badge> : null}
-                  {product.customizable ? (
-                    <Badge variant="secondary">Customizable</Badge>
-                  ) : (
-                    <Badge variant="outline">Fixed design</Badge>
-                  )}
-                  {product.show_price ? (
-                    <Badge variant="secondary">Price shown</Badge>
-                  ) : (
-                    <Badge variant="outline">Price hidden</Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
+
                 <dl className="grid gap-3 text-sm sm:grid-cols-2">
                   <div className="space-y-1">
                     <dt className="text-muted-foreground">Price</dt>
                     <dd className="font-medium">
                       {formatAdminPrice(product.price_from)}
+                    </dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-muted-foreground">Visibility</dt>
+                    <dd className="font-medium">
+                      {product.show_price ? "Price shown" : "Price hidden"}
+                    </dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-muted-foreground">Customization</dt>
+                    <dd className="font-medium">
+                      {product.customizable ? "Customizable" : "Fixed design"}
                     </dd>
                   </div>
                   <div className="space-y-1">
@@ -326,27 +401,20 @@ async function ProductsManagerContent() {
 
 export default function AdminProductsPage() {
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-12">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-3">
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Products Manager
-            </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-              Manage all products in the catalog, including inactive items and
-              price visibility settings.
-            </p>
-          </div>
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="Products"
+        description="Manage the catalog, pricing visibility, availability, and product images."
+        actions={
           <Button asChild>
-            <Link href="/admin/products/new">New product</Link>
+            <Link href="/admin/products/new">Add product</Link>
           </Button>
-        </div>
+        }
+      />
 
-        <Suspense fallback={<ProductsLoading />}>
-          <ProductsManagerContent />
-        </Suspense>
-      </div>
-    </main>
+      <Suspense fallback={<ProductsLoading />}>
+        <ProductsManagerContent />
+      </Suspense>
+    </div>
   );
 }

@@ -3,9 +3,17 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { updateInquiryStatusAction } from "@/app/admin/inquiries/actions";
+import { AdminNotice } from "@/components/admin/admin-notice";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   CUSTOMER_INQUIRY_STATUS_OPTIONS,
   getInquiryContactSummary,
@@ -105,35 +113,34 @@ async function InquiryContent({ params, searchParams }: InquiryDetailPageProps) 
   return (
     <div className="space-y-6">
       {resolvedSearchParams.updated === "1" ? (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
+        <AdminNotice tone="success">
           Inquiry status updated successfully.
-        </div>
+        </AdminNotice>
       ) : null}
 
       {resolvedSearchParams.error ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <AdminNotice tone="error">
           We couldn&apos;t update the inquiry status. Please try again.
-        </div>
+        </AdminNotice>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <CardTitle className="text-2xl">{data.customer_name}</CardTitle>
-                  <CardDescription>
-                    {getInquiryContactSummary(data)}
-                  </CardDescription>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={getStatusBadgeClasses(data.status)}
-                >
-                  {data.status}
-                </Badge>
+          <Card className="shadow-sm">
+            <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-2">
+                <CardDescription>Customer</CardDescription>
+                <CardTitle className="text-2xl">{data.customer_name}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {getInquiryContactSummary(data)}
+                </p>
               </div>
+              <Badge
+                variant="outline"
+                className={getStatusBadgeClasses(data.status)}
+              >
+                {data.status}
+              </Badge>
             </CardHeader>
             <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
               <div className="space-y-1">
@@ -159,11 +166,12 @@ async function InquiryContent({ params, searchParams }: InquiryDetailPageProps) 
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Inquiry</CardTitle>
+              <CardDescription>Request</CardDescription>
+              <CardTitle>Inquiry details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm">
+            <CardContent className="space-y-5 text-sm">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Related product</p>
@@ -188,11 +196,12 @@ async function InquiryContent({ params, searchParams }: InquiryDetailPageProps) 
         </div>
 
         <div className="space-y-6">
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Status</CardTitle>
+              <CardDescription>Status</CardDescription>
+              <CardTitle>Update inquiry</CardTitle>
               <CardDescription>
-                Update the inquiry progress using the approved status values.
+                Use the approved inquiry status values only.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -217,9 +226,10 @@ async function InquiryContent({ params, searchParams }: InquiryDetailPageProps) 
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Product links</CardTitle>
+              <CardDescription>Actions</CardDescription>
+              <CardTitle>Related links</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {product ? (
@@ -248,19 +258,17 @@ async function InquiryContent({ params, searchParams }: InquiryDetailPageProps) 
 
 export default function AdminInquiryDetailPage(props: InquiryDetailPageProps) {
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-12">
-        <Link
-          href="/admin/inquiries"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          ← Back to inquiries
-        </Link>
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="Inquiry detail"
+        description="Review the customer request, update its status, and jump to the related product when needed."
+        backHref="/admin/inquiries"
+        backLabel="Back to inquiries"
+      />
 
-        <Suspense fallback={<InquiryFallback />}>
-          <InquiryContent {...props} />
-        </Suspense>
-      </div>
-    </main>
+      <Suspense fallback={<InquiryFallback />}>
+        <InquiryContent {...props} />
+      </Suspense>
+    </div>
   );
 }

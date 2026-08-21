@@ -114,16 +114,21 @@ export async function getHomepageCatalogData() {
     .filter((category) => category.productCount > 0)
     .slice(0, 6);
 
+  const categoriesError = Boolean(
+    categoriesResult.error || categoryUsageResult.error,
+  );
+  const featuredProductsError = Boolean(featuredProductsResult.error);
+
   return {
-    hasError: Boolean(
-      categoriesResult.error ||
-        categoryUsageResult.error ||
-        featuredProductsResult.error,
-    ),
+    hasError: categoriesError || featuredProductsError,
+    categoriesError,
+    featuredProductsError,
     categories,
     featuredProducts: (featuredProductsResult.data ?? []) as PublicProduct[],
-    totalActiveCategories: categories.length,
-    totalFeaturedProducts: (featuredProductsResult.data ?? []).length,
+    totalActiveCategories: categoriesError ? null : categories.length,
+    totalFeaturedProducts: featuredProductsError
+      ? null
+      : (featuredProductsResult.data ?? []).length,
   };
 }
 
@@ -169,9 +174,12 @@ export async function getPublicProductsPageData({
     (categoryUsageResult.data ?? []).map((row) => row.category_id),
   );
 
+  const categoriesError = Boolean(categoriesResult.error || categoryUsageResult.error);
+
   const selectedCategory =
     categories.find((category) => category.slug === categorySlug) ?? null;
-  const invalidCategory = Boolean(categorySlug) && !selectedCategory;
+  const invalidCategory =
+    !categoriesError && Boolean(categorySlug) && !selectedCategory;
 
   if (invalidCategory) {
     return {
@@ -216,11 +224,9 @@ export async function getPublicProductsPageData({
   }
 
   return {
-    hasError: Boolean(
-      categoriesResult.error ||
-        categoryUsageResult.error ||
-        productsError,
-    ),
+    hasError: Boolean(categoriesError || productsError),
+    categoriesError,
+    productsError: Boolean(productsError),
     categories,
     products: (products ?? []) as PublicProduct[],
     selectedCategory,
@@ -229,7 +235,7 @@ export async function getPublicProductsPageData({
   };
 }
 
-export async function getPublicProductBySlug(slug: string) {
+export async function getPublicProductBySlugResult(slug: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("products")
@@ -246,13 +252,24 @@ export async function getPublicProductBySlug(slug: string) {
       hint: error.hint,
     });
 
-    return null;
+    return {
+      product: null,
+      hasError: true,
+    };
   }
 
-  return (data ?? null) as (PublicProduct & { category_id: string | null }) | null;
+  return {
+    product: (data ?? null) as (PublicProduct & { category_id: string | null }) | null,
+    hasError: false,
+  };
 }
 
-export async function getRelatedProducts({
+export async function getPublicProductBySlug(slug: string) {
+  const result = await getPublicProductBySlugResult(slug);
+  return result.product;
+}
+
+export async function getRelatedProductsResult({
   productId,
   categoryId,
   limit = 4,
@@ -264,7 +281,10 @@ export async function getRelatedProducts({
   const supabase = await createClient();
 
   if (!categoryId) {
-    return [] as PublicProduct[];
+    return {
+      products: [] as PublicProduct[],
+      hasError: false,
+    };
   }
 
   const { data, error } = await supabase
@@ -285,8 +305,23 @@ export async function getRelatedProducts({
       hint: error.hint,
     });
 
-    return [] as PublicProduct[];
+    return {
+      products: [] as PublicProduct[],
+      hasError: true,
+    };
   }
 
-  return (data ?? []) as PublicProduct[];
+  return {
+    products: (data ?? []) as PublicProduct[],
+    hasError: false,
+  };
+}
+
+export async function getRelatedProducts(args: {
+  productId: string;
+  categoryId: string | null;
+  limit?: number;
+}) {
+  const result = await getRelatedProductsResult(args);
+  return result.products;
 }

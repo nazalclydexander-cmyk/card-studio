@@ -173,7 +173,28 @@ function mapDatabaseErrorToMessage(errorCode: string | null) {
 function revalidateProductRoutes() {
   revalidatePath("/admin");
   revalidatePath("/admin/products");
+  revalidatePath("/");
   revalidatePath("/products");
+}
+
+async function getAllProductSlugs() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("products").select("slug");
+
+  if (error) {
+    console.error("Failed to load product slugs for revalidation", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+
+    return [] as string[];
+  }
+
+  return (data ?? [])
+    .map((product) => product.slug)
+    .filter((slug): slug is string => typeof slug === "string" && slug.length > 0);
 }
 
 function revalidatePublicProductSlug(slug: string | null | undefined) {
@@ -182,6 +203,25 @@ function revalidatePublicProductSlug(slug: string | null | undefined) {
   }
 
   revalidatePath(`/products/${slug}`);
+}
+
+async function revalidateAllProductDetailRoutes(extraSlugs: Array<string | null | undefined> = []) {
+  const productSlugs = await getAllProductSlugs();
+  const slugsToRevalidate = new Set<string>();
+
+  for (const slug of productSlugs) {
+    slugsToRevalidate.add(slug);
+  }
+
+  for (const slug of extraSlugs) {
+    if (slug) {
+      slugsToRevalidate.add(slug);
+    }
+  }
+
+  for (const slug of slugsToRevalidate) {
+    revalidatePublicProductSlug(slug);
+  }
 }
 
 async function getProductSlugById(productId: string) {
@@ -212,7 +252,9 @@ async function revalidateProductRoutesForId(
 ) {
   revalidateProductRoutes();
   revalidatePath(`/admin/products/${productId}/edit`);
-  revalidatePublicProductSlug(knownSlug ?? (await getProductSlugById(productId)));
+  await revalidateAllProductDetailRoutes([
+    knownSlug ?? (await getProductSlugById(productId)),
+  ]);
 }
 
 function mapProductImageErrorToMessage(errorCode: string | null) {
@@ -278,7 +320,7 @@ export async function createProductAction(
   }
 
   revalidateProductRoutes();
-  revalidatePublicProductSlug(slug);
+  await revalidateAllProductDetailRoutes([slug]);
   redirect(`/admin/products/${data.id}/edit?created=1`);
 }
 
@@ -337,8 +379,7 @@ export async function updateProductAction(
   }
 
   revalidateProductRoutes();
-  revalidatePublicProductSlug(currentSlug);
-  revalidatePublicProductSlug(slug);
+  await revalidateAllProductDetailRoutes([currentSlug, slug]);
   redirect(`/admin/products/${productId}/edit?updated=1`);
 }
 
@@ -369,7 +410,7 @@ export async function toggleProductActiveAction(
   }
 
   revalidateProductRoutes();
-  revalidatePublicProductSlug(currentSlug);
+  await revalidateAllProductDetailRoutes([currentSlug]);
   redirect("/admin/products");
 }
 
@@ -423,7 +464,7 @@ export async function deleteProductAction(
   }
 
   revalidateProductRoutes();
-  revalidatePublicProductSlug(currentSlug);
+  await revalidateAllProductDetailRoutes([currentSlug]);
   redirect("/admin/products?deleted=1");
 }
 

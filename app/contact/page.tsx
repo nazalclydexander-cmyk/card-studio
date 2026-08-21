@@ -5,13 +5,14 @@ import { Suspense } from "react";
 import { ContactInquiryForm } from "@/components/public/contact-inquiry-form";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   getPrimaryProductImageUrl,
   type PublicProduct,
 } from "@/lib/public-catalog-shared";
-import { getPublicProductBySlug } from "@/lib/public-catalog";
+import { getPublicProductBySlugResult } from "@/lib/public-catalog";
 import { getSiteSettings } from "@/lib/site-settings";
 
 export const metadata = {
@@ -202,11 +203,11 @@ function ContactInformationCard({
 
 async function ContactContent({ searchParams }: ContactPageProps) {
   const resolvedSearchParams = await searchParams;
-  const [siteSettings, product] = await Promise.all([
+  const [siteSettings, productResult] = await Promise.all([
     getSiteSettings(),
     resolvedSearchParams.product
-      ? getPublicProductBySlug(resolvedSearchParams.product)
-      : Promise.resolve(null),
+      ? getPublicProductBySlugResult(resolvedSearchParams.product)
+      : Promise.resolve({ product: null, hasError: false }),
   ]);
 
   const submitted = resolvedSearchParams.submitted === "1";
@@ -214,8 +215,9 @@ async function ContactContent({ searchParams }: ContactPageProps) {
     typeof resolvedSearchParams.product === "string"
       ? resolvedSearchParams.product.trim().toLowerCase()
       : "";
+  const product = productResult.product;
   const invalidProductSelection =
-    Boolean(requestedProductSlug) && !product;
+    Boolean(requestedProductSlug) && !product && !productResult.hasError;
 
   return (
     <>
@@ -241,7 +243,12 @@ async function ContactContent({ searchParams }: ContactPageProps) {
             </p>
           </div>
 
-          {invalidProductSelection ? (
+          {productResult.hasError ? (
+            <PublicStateCard
+              title="We couldn't load the selected design right now"
+              description="You can still continue with a general inquiry below, or try the product link again in a moment."
+            />
+          ) : invalidProductSelection ? (
             <Card>
               <CardHeader>
                 <CardTitle>Selected product unavailable</CardTitle>

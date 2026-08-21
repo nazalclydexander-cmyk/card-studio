@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { updateAppearanceSettingsAction } from "@/app/admin/appearance/actions";
+import { AdminNotice } from "@/components/admin/admin-notice";
 import { ProductCard } from "@/components/public/product-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -360,14 +361,14 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
   }
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
       <div className="space-y-6">
-        <div className="rounded-2xl border p-6">
+        <div className="rounded-2xl border bg-background p-6 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Appearance Editor
-              </h1>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Appearance editor
+              </h2>
               <p className="text-sm text-muted-foreground sm:text-base">
                 Update the public site&apos;s branding, colors, typography,
                 shape, catalog display settings, and business contact details.
@@ -380,20 +381,14 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
         </div>
 
         {feedback ? (
-          <div
-            className={`rounded-lg border px-4 py-3 text-sm ${
-              feedback.tone === "success"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-                : "border-destructive/30 bg-destructive/5 text-destructive"
-            }`}
-          >
+          <AdminNotice tone={feedback.tone === "success" ? "success" : "error"}>
             {feedback.message}
-          </div>
+          </AdminNotice>
         ) : null}
 
-        <section className="space-y-4 rounded-2xl border p-6">
+        <section className="space-y-4 rounded-2xl border bg-background p-6 shadow-sm">
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold">Business &amp; Branding</h2>
+            <h2 className="text-xl font-semibold">Business &amp; Contact</h2>
             <p className="text-sm text-muted-foreground">
               Manage the public logo, contact information, and social links from
               the same site settings row.
@@ -581,7 +576,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border p-6">
+        <section className="space-y-4 rounded-2xl border bg-background p-6 shadow-sm">
           <div className="space-y-1">
             <h2 className="text-xl font-semibold">Branding</h2>
             <p className="text-sm text-muted-foreground">
@@ -643,7 +638,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border p-6">
+        <section className="space-y-4 rounded-2xl border bg-background p-6 shadow-sm">
           <div className="space-y-1">
             <h2 className="text-xl font-semibold">Colors</h2>
             <p className="text-sm text-muted-foreground">
@@ -665,7 +660,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border p-6">
+        <section className="space-y-4 rounded-2xl border bg-background p-6 shadow-sm">
           <div className="space-y-1">
             <h2 className="text-xl font-semibold">Typography</h2>
             <p className="text-sm text-muted-foreground">
@@ -765,7 +760,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border p-6">
+        <section className="space-y-4 rounded-2xl border bg-background p-6 shadow-sm">
           <div className="space-y-1">
             <h2 className="text-xl font-semibold">Shape</h2>
             <p className="text-sm text-muted-foreground">
@@ -820,7 +815,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border p-6">
+        <section className="space-y-4 rounded-2xl border bg-background p-6 shadow-sm">
           <div className="space-y-1">
             <h2 className="text-xl font-semibold">Catalog</h2>
             <p className="text-sm text-muted-foreground">
@@ -886,7 +881,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
           </div>
         </section>
 
-        <div className="flex flex-col gap-3 rounded-2xl border p-6">
+        <div className="sticky bottom-0 z-10 flex flex-col gap-3 rounded-2xl border bg-background/95 p-6 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">Save changes</h2>
@@ -944,7 +939,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
         </div>
       </div>
 
-      <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+      <aside className="space-y-4 xl:sticky xl:top-8 xl:self-start">
         <div className="space-y-1">
           <h2 className="text-xl font-semibold">Preview</h2>
           <p className="text-sm text-muted-foreground">

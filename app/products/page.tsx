@@ -6,6 +6,7 @@ import { CatalogFilters } from "@/components/public/catalog-filters";
 import { ProductCard } from "@/components/public/product-card";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -96,15 +97,10 @@ async function ProductsContent({
   return (
     <div className="space-y-8">
       {catalogData.hasError ? (
-        <Card style={getShellCardStyle()}>
-          <CardHeader>
-            <CardTitle>Catalog temporarily unavailable</CardTitle>
-            <CardDescription>
-              We couldn&apos;t load the latest catalog data right now. Please
-              try refreshing the page in a moment.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <PublicStateCard
+          title="Catalog temporarily unavailable"
+          description="We couldn't load the latest catalog data right now. Please try refreshing the page in a moment."
+        />
       ) : null}
 
       <CatalogFilters
@@ -122,8 +118,11 @@ async function ProductsContent({
             {catalogData.selectedCategory?.name ?? "All designs"}
           </p>
           <h2 className="text-3xl">
-            {catalogData.products.length} design
-            {catalogData.products.length === 1 ? "" : "s"} available
+            {catalogData.productsError
+              ? "Catalog unavailable"
+              : `${catalogData.products.length} design${
+                  catalogData.products.length === 1 ? "" : "s"
+                } available`}
           </h2>
         </div>
 
@@ -144,16 +143,16 @@ async function ProductsContent({
             />
           ))}
         </div>
+      ) : catalogData.productsError ? (
+        <PublicStateCard
+          title="We couldn't load the collection right now"
+          description="Please try again in a moment. If the issue continues, refreshing the page usually helps."
+        />
       ) : (
-        <Card style={getShellCardStyle()}>
-          <CardHeader>
-            <CardTitle>No matching designs yet</CardTitle>
-            <CardDescription>
-              Try another category or search phrase, or clear the current
-              filters to browse the full collection.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <PublicStateCard
+          title="No matching designs yet"
+          description="Try another category or search phrase, or clear the current filters to browse the full collection."
+        />
       )}
     </div>
   );

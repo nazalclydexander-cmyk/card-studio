@@ -61,7 +61,7 @@ export function ProductImageGallery({
           color: "var(--site-muted)",
         }}
       >
-        Product gallery coming soon
+        No preview available
       </div>
     );
   }

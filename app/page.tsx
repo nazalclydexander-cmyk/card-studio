@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { ProductCard } from "@/components/public/product-card";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
 import { getHomepageCatalogData } from "@/lib/public-catalog";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -134,7 +135,7 @@ async function HomeContent() {
                   Curated categories
                 </p>
                 <p className="mt-4 text-4xl font-semibold">
-                  {homepageData.totalActiveCategories}
+                  {homepageData.totalActiveCategories ?? "—"}
                 </p>
                 <p
                   className="mt-2 text-sm leading-6"
@@ -161,7 +162,7 @@ async function HomeContent() {
                   Featured designs
                 </p>
                 <p className="mt-4 text-4xl font-semibold">
-                  {homepageData.totalFeaturedProducts}
+                  {homepageData.totalFeaturedProducts ?? "—"}
                 </p>
                 <p
                   className="mt-2 text-sm leading-6"
@@ -201,44 +202,64 @@ async function HomeContent() {
             </Button>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {homepageData.categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/products?category=${category.slug}`}
-                className="rounded-[calc(var(--site-card-radius)+0.2rem)] border p-5 shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                style={{
-                  backgroundColor: "var(--site-surface)",
-                  borderColor:
-                    "color-mix(in srgb, var(--site-text) 10%, transparent)",
-                }}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <h3 className="text-xl">{category.name}</h3>
-                    <span
-                      className="rounded-full px-3 py-1 text-xs font-medium"
-                      style={{
-                        backgroundColor:
-                          "color-mix(in srgb, var(--site-primary) 10%, white)",
-                        color: "var(--site-text)",
-                      }}
+          {homepageData.categoriesError ? (
+            <div className="mt-8">
+              <PublicStateCard
+                title="Categories unavailable right now"
+                description="We couldn't load the latest category list. Please try again in a moment."
+                actionHref="/products"
+                actionLabel="Browse all products"
+              />
+            </div>
+          ) : homepageData.categories.length > 0 ? (
+            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {homepageData.categories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/products?category=${category.slug}`}
+                  className="rounded-[calc(var(--site-card-radius)+0.2rem)] border p-5 shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  style={{
+                    backgroundColor: "var(--site-surface)",
+                    borderColor:
+                      "color-mix(in srgb, var(--site-text) 10%, transparent)",
+                  }}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <h3 className="text-xl">{category.name}</h3>
+                      <span
+                        className="rounded-full px-3 py-1 text-xs font-medium"
+                        style={{
+                          backgroundColor:
+                            "color-mix(in srgb, var(--site-primary) 10%, white)",
+                          color: "var(--site-text)",
+                        }}
+                      >
+                        {category.productCount} design
+                        {category.productCount === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <p
+                      className="text-sm leading-6"
+                      style={{ color: "var(--site-muted)" }}
                     >
-                      {category.productCount} design
-                      {category.productCount === 1 ? "" : "s"}
-                    </span>
+                      {category.description?.trim() ||
+                        "Browse curated invitation styles for this celebration."}
+                    </p>
                   </div>
-                  <p
-                    className="text-sm leading-6"
-                    style={{ color: "var(--site-muted)" }}
-                  >
-                    {category.description?.trim() ||
-                      "Browse curated invitation styles for this celebration."}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-8">
+              <PublicStateCard
+                title="No categories to browse yet"
+                description="Categories will appear here once active catalog products are available."
+                actionHref="/products"
+                actionLabel="View the collection"
+              />
+            </div>
+          )}
         </section>
 
         <section className="mx-auto w-full max-w-7xl px-5 py-8 sm:py-12">
@@ -258,7 +279,16 @@ async function HomeContent() {
             </p>
           </div>
 
-          {homepageData.featuredProducts.length > 0 ? (
+          {homepageData.featuredProductsError ? (
+            <div className="mt-8">
+              <PublicStateCard
+                title="Featured designs unavailable right now"
+                description="We couldn't load the featured catalog section at the moment. Please try again shortly."
+                actionHref="/products"
+                actionLabel="Browse all products"
+              />
+            </div>
+          ) : homepageData.featuredProducts.length > 0 ? (
             <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {homepageData.featuredProducts.map((product) => (
                 <ProductCard
@@ -269,22 +299,13 @@ async function HomeContent() {
               ))}
             </div>
           ) : (
-            <div
-              className="mt-8 rounded-[calc(var(--site-card-radius)+0.25rem)] border px-6 py-10 text-center shadow-sm"
-              style={{
-                backgroundColor: "var(--site-surface)",
-                borderColor:
-                  "color-mix(in srgb, var(--site-text) 10%, transparent)",
-              }}
-            >
-              <h3 className="text-2xl">Featured products are coming soon</h3>
-              <p
-                className="mt-3 text-sm leading-6 sm:text-base"
-                style={{ color: "var(--site-muted)" }}
-              >
-                The catalog is live, and featured highlights will appear here as
-                soon as they&apos;re marked in the admin panel.
-              </p>
+            <div className="mt-8">
+              <PublicStateCard
+                title="No featured designs selected yet"
+                description="Featured products will appear here once they are marked from the catalog."
+                actionHref="/products"
+                actionLabel="Explore the collection"
+              />
             </div>
           )}
         </section>

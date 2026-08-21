@@ -57,7 +57,7 @@ export function ProductCard({ product, siteSettings }: ProductCardProps) {
             className="flex h-full w-full items-center justify-center rounded-[calc(var(--site-card-radius)-0.2rem)] border border-dashed border-black/10 px-6 text-center text-sm"
             style={{ color: "var(--site-muted)" }}
           >
-            Invitation preview coming soon
+            Preview unavailable
           </div>
         )}
       </div>

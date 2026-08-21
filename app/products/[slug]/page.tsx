@@ -7,6 +7,7 @@ import { ProductImageGallery } from "@/components/public/product-image-gallery";
 import { ProductCard } from "@/components/public/product-card";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
 import {
   getPrimaryProductImageUrl,
@@ -14,8 +15,8 @@ import {
   getPublicPriceDisplay,
 } from "@/lib/public-catalog-shared";
 import {
-  getPublicProductBySlug,
-  getRelatedProducts,
+  getPublicProductBySlugResult,
+  getRelatedProductsResult,
 } from "@/lib/public-catalog";
 import { getSiteSettings } from "@/lib/site-settings";
 
@@ -29,12 +30,12 @@ export async function generateMetadata({
   params,
 }: ProductDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const [siteSettings, product] = await Promise.all([
+  const [siteSettings, productResult] = await Promise.all([
     getSiteSettings(),
-    getPublicProductBySlug(slug),
+    getPublicProductBySlugResult(slug),
   ]);
 
-  if (!product) {
+  if (!productResult.product) {
     return {
       title: "Product not found",
       robots: {
@@ -44,6 +45,7 @@ export async function generateMetadata({
     };
   }
 
+  const product = productResult.product;
   const primaryImageUrl = getPrimaryProductImageUrl(product);
 
   return {
@@ -105,16 +107,38 @@ function ProductDetailFallback() {
 
 async function ProductDetailContent({ params }: ProductDetailPageProps) {
   const { slug } = await params;
-  const [siteSettings, product] = await Promise.all([
+  const [siteSettings, productResult] = await Promise.all([
     getSiteSettings(),
-    getPublicProductBySlug(slug),
+    getPublicProductBySlugResult(slug),
   ]);
 
-  if (!product) {
+  if (productResult.hasError) {
+    return (
+      <>
+        <PublicHeader siteSettings={siteSettings} />
+
+        <main className="min-h-screen">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-12">
+            <PublicStateCard
+              title="This design couldn't be loaded right now"
+              description="We couldn't load the latest product details at the moment. Please try again shortly."
+              actionHref="/products"
+              actionLabel="Back to the collection"
+            />
+          </div>
+        </main>
+
+        <PublicFooter siteSettings={siteSettings} />
+      </>
+    );
+  }
+
+  if (!productResult.product) {
     notFound();
   }
 
-  const relatedProducts = await getRelatedProducts({
+  const product = productResult.product;
+  const relatedProductsResult = await getRelatedProductsResult({
     productId: product.id,
     categoryId: product.category_id,
     limit: 4,
@@ -306,9 +330,9 @@ async function ProductDetailContent({ params }: ProductDetailPageProps) {
               <h2 className="text-3xl">You may also like</h2>
             </div>
 
-            {relatedProducts.length > 0 ? (
+            {relatedProductsResult.products.length > 0 ? (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-                {relatedProducts.map((relatedProduct) => (
+                {relatedProductsResult.products.map((relatedProduct) => (
                   <ProductCard
                     key={relatedProduct.id}
                     product={relatedProduct}
@@ -316,21 +340,16 @@ async function ProductDetailContent({ params }: ProductDetailPageProps) {
                   />
                 ))}
               </div>
+            ) : relatedProductsResult.hasError ? (
+              <PublicStateCard
+                title="Related designs unavailable right now"
+                description="We couldn't load related products for this design at the moment."
+              />
             ) : (
-              <div
-                className="rounded-[calc(var(--site-card-radius)+0.1rem)] border px-6 py-8 text-center shadow-sm"
-                style={{
-                  backgroundColor: "var(--site-surface)",
-                  borderColor:
-                    "color-mix(in srgb, var(--site-text) 10%, transparent)",
-                }}
-              >
-                <p className="text-lg font-medium">More designs coming soon</p>
-                <p className="mt-2 text-sm" style={{ color: "var(--site-muted)" }}>
-                  We&apos;ll show related designs here as more products are added
-                  to this category.
-                </p>
-              </div>
+              <PublicStateCard
+                title="No related designs available"
+                description="More products from this category will appear here as the catalog grows."
+              />
             )}
           </section>
         </div>

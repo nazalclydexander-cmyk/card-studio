@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   getInquiryContactSummary,
   getInquiryProduct,
@@ -37,7 +45,7 @@ function InquiriesFallback() {
   return (
     <div className="space-y-4">
       {Array.from({ length: 3 }).map((_, index) => (
-        <Card key={index}>
+        <Card key={index} className="shadow-sm">
           <CardHeader>
             <div className="h-6 w-40 rounded bg-muted" />
             <div className="h-4 w-52 rounded bg-muted" />
@@ -102,15 +110,10 @@ async function InquiriesContent() {
 
   if (!inquiries.length) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>No inquiries yet</CardTitle>
-          <CardDescription>
-            Customer inquiries will appear here as they are submitted from the
-            public contact form.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <AdminEmptyState
+        title="No inquiries yet"
+        description="Customer inquiries will appear here as they are submitted from the public inquiry flow."
+      />
     );
   }
 
@@ -120,57 +123,56 @@ async function InquiriesContent() {
         const product = getInquiryProduct(inquiry.product);
 
         return (
-          <Card key={inquiry.id}>
-            <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <CardTitle className="text-xl">
+          <Card key={inquiry.id} className="shadow-sm">
+            <CardContent className="space-y-4 p-5">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="space-y-1">
                   <Link
                     href={`/admin/inquiries/${inquiry.id}`}
-                    className="hover:underline"
+                    className="text-lg font-semibold hover:underline"
                   >
                     {inquiry.customer_name}
                   </Link>
-                </CardTitle>
-                <CardDescription>
-                  {getInquiryContactSummary(inquiry)}
-                </CardDescription>
-              </div>
-              <Badge
-                variant="outline"
-                className={getStatusBadgeClasses(inquiry.status)}
-              >
-                {inquiry.status}
-              </Badge>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Product</p>
-                  <p className="font-medium">
-                    {product?.name ?? "General inquiry"}
+                  <p className="text-sm text-muted-foreground">
+                    {getInquiryContactSummary(inquiry)}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Event date</p>
-                  <p className="font-medium">
-                    {inquiry.event_date ?? "Not provided"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Quantity</p>
-                  <p className="font-medium">
-                    {inquiry.quantity ?? "Not provided"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Submitted</p>
-                  <p className="font-medium">
-                    {inquiryListDateFormatter.format(new Date(inquiry.created_at))}
-                  </p>
-                </div>
+                <Badge
+                  variant="outline"
+                  className={getStatusBadgeClasses(inquiry.status)}
+                >
+                  {inquiry.status}
+                </Badge>
               </div>
 
-              <p className="line-clamp-3 text-muted-foreground">
+              <dl className="grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                <div className="space-y-1">
+                  <dt className="text-muted-foreground">Product</dt>
+                  <dd className="font-medium">
+                    {product?.name ?? "General inquiry"}
+                  </dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-muted-foreground">Event date</dt>
+                  <dd className="font-medium">
+                    {inquiry.event_date ?? "Not provided"}
+                  </dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-muted-foreground">Quantity</dt>
+                  <dd className="font-medium">
+                    {inquiry.quantity ?? "Not provided"}
+                  </dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-muted-foreground">Submitted</dt>
+                  <dd className="font-medium">
+                    {inquiryListDateFormatter.format(new Date(inquiry.created_at))}
+                  </dd>
+                </div>
+              </dl>
+
+              <p className="line-clamp-3 text-sm text-muted-foreground">
                 {inquiry.message}
               </p>
 
@@ -187,27 +189,15 @@ async function InquiriesContent() {
 
 export default function AdminInquiriesPage() {
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-12">
-        <div className="flex flex-col gap-3">
-          <Link
-            href="/admin"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            ← Back to admin
-          </Link>
-          <div className="space-y-3">
-            <h1 className="text-3xl font-semibold tracking-tight">Inquiries</h1>
-            <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-              Review incoming customer inquiries and track their status.
-            </p>
-          </div>
-        </div>
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="Inquiries"
+        description="Review customer requests, check product context, and update inquiry status."
+      />
 
-        <Suspense fallback={<InquiriesFallback />}>
-          <InquiriesContent />
-        </Suspense>
-      </div>
-    </main>
+      <Suspense fallback={<InquiriesFallback />}>
+        <InquiriesContent />
+      </Suspense>
+    </div>
   );
 }

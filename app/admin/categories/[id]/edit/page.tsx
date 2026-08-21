@@ -5,6 +5,8 @@ import { Suspense } from "react";
 import { DeleteCategoryForm } from "@/app/admin/categories/delete-category-form";
 import { updateCategoryAction } from "@/app/admin/categories/actions";
 import { CategoryForm } from "@/app/admin/categories/category-form";
+import { AdminNotice } from "@/components/admin/admin-notice";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -121,27 +123,27 @@ async function EditCategoryContent({
   return (
     <div className="space-y-8">
       {resolvedSearchParams.created === "1" ? (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
+        <AdminNotice tone="success">
           Category created successfully.
-        </div>
+        </AdminNotice>
       ) : null}
 
       {resolvedSearchParams.updated === "1" ? (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
+        <AdminNotice tone="success">
           Category updated successfully.
-        </div>
+        </AdminNotice>
       ) : null}
 
       <CategoryForm
         action={boundUpdateAction}
         initialValues={initialValues}
         submitLabel="Save changes"
-        heading="Edit category"
+        heading="Category details"
         description="Update category details. If you change the category name, the slug is regenerated from the new name and safely de-duplicated if needed."
         cancelHref="/admin/categories"
       />
 
-      <Card className="border-destructive/20">
+      <Card className="border-destructive/20 shadow-sm">
         <CardHeader>
           <CardTitle>Danger zone</CardTitle>
           <CardDescription>
@@ -174,19 +176,17 @@ export default function EditCategoryPage({
   searchParams,
 }: EditCategoryPageProps) {
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 py-12">
-        <Link
-          href="/admin/categories"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          ← Back to categories
-        </Link>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+      <AdminPageHeader
+        title="Edit category"
+        description="Update category details and control whether it is available in the public catalog."
+        backHref="/admin/categories"
+        backLabel="Back to categories"
+      />
 
-        <Suspense fallback={<EditLoading />}>
-          <EditCategoryContent params={params} searchParams={searchParams} />
-        </Suspense>
-      </div>
-    </main>
+      <Suspense fallback={<EditLoading />}>
+        <EditCategoryContent params={params} searchParams={searchParams} />
+      </Suspense>
+    </div>
   );
 }

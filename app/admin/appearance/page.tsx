@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { AppearanceEditor } from "@/app/admin/appearance/appearance-editor";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { createAppearanceFormValues } from "@/lib/appearance-settings";
 import { requireAdmin } from "@/lib/admin";
@@ -52,19 +52,15 @@ async function AppearanceContent() {
 
 export default function AppearancePage() {
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-12">
-        <Link
-          href="/admin"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          ← Back to admin
-        </Link>
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="Appearance"
+        description="Customize storefront branding, colors, typography, catalog pricing visibility, and business contact details."
+      />
 
-        <Suspense fallback={<AppearanceFallback />}>
-          <AppearanceContent />
-        </Suspense>
-      </div>
-    </main>
+      <Suspense fallback={<AppearanceFallback />}>
+        <AppearanceContent />
+      </Suspense>
+    </div>
   );
 }

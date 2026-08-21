@@ -1,10 +1,13 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
-export function LogoutButton() {
+type LogoutButtonProps = Omit<ComponentProps<typeof Button>, "onClick">;
+
+export function LogoutButton(props: LogoutButtonProps) {
   const router = useRouter();
 
   const logout = async () => {
@@ -13,5 +16,9 @@ export function LogoutButton() {
     router.push("/auth/login");
   };
 
-  return <Button onClick={logout}>Logout</Button>;
+  return (
+    <Button onClick={logout} {...props}>
+      Logout
+    </Button>
+  );
 }

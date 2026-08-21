@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { createCategoryAction } from "@/app/admin/categories/actions";
 import { CategoryForm } from "@/app/admin/categories/category-form";
 import { defaultCategoryValues } from "@/app/admin/categories/form-state";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/admin";
 
@@ -48,7 +48,7 @@ async function NewCategoryContent() {
       action={createCategoryAction}
       initialValues={defaultCategoryValues}
       submitLabel="Create category"
-      heading="New category"
+      heading="Category details"
       description="Create a new catalog category. The slug will be generated safely from the category name on save."
       cancelHref="/admin/categories"
     />
@@ -57,19 +57,17 @@ async function NewCategoryContent() {
 
 export default function NewCategoryPage() {
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 py-12">
-        <Link
-          href="/admin/categories"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          ← Back to categories
-        </Link>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+      <AdminPageHeader
+        title="New category"
+        description="Create a category to organize the catalog and control the order shown on the public site."
+        backHref="/admin/categories"
+        backLabel="Back to categories"
+      />
 
-        <Suspense fallback={<FormLoading />}>
-          <NewCategoryContent />
-        </Suspense>
-      </div>
-    </main>
+      <Suspense fallback={<FormLoading />}>
+        <NewCategoryContent />
+      </Suspense>
+    </div>
   );
 }

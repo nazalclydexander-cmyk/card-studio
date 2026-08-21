@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { Plus, Sparkles } from "lucide-react";
 
-import { LogoutButton } from "@/components/logout-button";
-import { Button } from "@/components/ui/button";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
   Card,
   CardContent,
@@ -10,123 +10,264 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/admin";
+import { createClient } from "@/lib/supabase/server";
+import {
+  getInquiryContactSummary,
+  getInquiryProduct,
+  getStatusBadgeClasses,
+  inquiryListDateFormatter,
+  type AdminInquiryListItem,
+} from "@/lib/customer-inquiries";
+import { adminNavItems } from "@/components/admin/config";
+import { Badge } from "@/components/ui/badge";
 
 export const metadata = {
   title: "Admin",
   description: "Administrator dashboard.",
 };
 
-const adminSections = [
+const summaryCardConfig = [
   {
     title: "Products",
-    href: "/admin/products",
-    description:
-      "Manage products, pricing, visibility, and product images.",
+    key: "products",
+    description: "Total products in the catalog",
   },
   {
     title: "Categories",
-    href: "/admin/categories",
-    description: "Organize and manage product categories.",
+    key: "categories",
+    description: "Available catalog categories",
   },
   {
-    title: "Appearance",
-    href: "/admin/appearance",
-    description:
-      "Customize branding, colors, fonts, logo, and catalog settings.",
+    title: "New inquiries",
+    key: "newInquiries",
+    description: "Customer inquiries awaiting review",
   },
   {
-    title: "Inquiries",
-    href: "/admin/inquiries",
-    description: "Review customer inquiries and update their status.",
+    title: "Featured products",
+    key: "featuredProducts",
+    description: "Products highlighted publicly",
   },
 ] as const;
 
-function AdminFallback() {
+function AccessDeniedCard() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {adminSections.map((section) => (
-        <Card key={section.title}>
-          <CardHeader>
-            <CardTitle>{section.title}</CardTitle>
-            <CardDescription>Loading…</CardDescription>
-          </CardHeader>
-        </Card>
-      ))}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Access denied</CardTitle>
+        <CardDescription>
+          Your account is authenticated, but it is not authorized for the
+          administrator area.
+        </CardDescription>
+      </CardHeader>
+    </Card>
   );
 }
 
-async function AdminContent() {
+export default async function AdminPage() {
   const access = await requireAdmin();
 
   if (!access.isAdmin) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Access denied</CardTitle>
-          <CardDescription>
-            Your account is authenticated, but it is not authorized for the
-            administrator area.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return <AccessDeniedCard />;
   }
 
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {adminSections.map((section) => (
-        <Card
-          key={section.title}
-          className="transition-shadow hover:shadow-sm"
-        >
-          <CardHeader>
-            <CardTitle>
-              <Link href={section.href} className="hover:underline">
-                {section.title}
-              </Link>
-            </CardTitle>
-            <CardDescription>{section.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild size="sm" variant="outline">
-              <Link href={section.href}>Open section</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
+  const supabase = await createClient();
+  const [
+    { count: productsCount },
+    { count: categoriesCount },
+    { count: newInquiriesCount },
+    { count: featuredProductsCount },
+    { data: recentInquiries, error: recentInquiriesError },
+  ] = await Promise.all([
+    supabase.from("products").select("id", { count: "exact", head: true }),
+    supabase.from("categories").select("id", { count: "exact", head: true }),
+    supabase
+      .from("customer_inquiries")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new"),
+    supabase
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("featured", true),
+    supabase
+      .from("customer_inquiries")
+      .select(
+        `
+          id,
+          customer_name,
+          email,
+          phone,
+          status,
+          created_at,
+          product:products (
+            id,
+            name,
+            slug
+          )
+        `,
+      )
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
 
-export default function AdminPage() {
-  return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-12">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-3">
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Admin Dashboard
-            </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-              Manage the catalog, branding, and customer inquiries from one
-              place.
-            </p>
-          </div>
+  if (recentInquiriesError) {
+    console.error("Failed to load dashboard inquiries", {
+      code: recentInquiriesError.code,
+      message: recentInquiriesError.message,
+      details: recentInquiriesError.details,
+      hint: recentInquiriesError.hint,
+    });
+  }
 
-          <div className="flex flex-wrap gap-3">
+  const summaryValues = {
+    products: productsCount ?? 0,
+    categories: categoriesCount ?? 0,
+    newInquiries: newInquiriesCount ?? 0,
+    featuredProducts: featuredProductsCount ?? 0,
+  };
+
+  const inquiries = (recentInquiries ?? []) as AdminInquiryListItem[];
+
+  return (
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="Admin Dashboard"
+        description="Manage the catalog, storefront appearance, and customer inquiries from one cohesive workspace."
+        actions={
+          <>
             <Button asChild variant="outline">
               <Link href="/">View Website</Link>
             </Button>
-            <LogoutButton />
-          </div>
-        </div>
+            <Button asChild>
+              <Link href="/admin/products/new">
+                <Plus className="h-4 w-4" />
+                New Product
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
-        <Suspense fallback={<AdminFallback />}>
-          <AdminContent />
-        </Suspense>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summaryCardConfig.map((item) => (
+          <Card key={item.key} className="shadow-sm">
+            <CardHeader className="space-y-3">
+              <CardDescription>{item.title}</CardDescription>
+              <CardTitle className="text-3xl">
+                {summaryValues[item.key]}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {item.description}
+              </p>
+            </CardHeader>
+          </Card>
+        ))}
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <CardTitle>Recent inquiries</CardTitle>
+              <CardDescription>
+                Keep an eye on the latest customer requests.
+              </CardDescription>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/admin/inquiries">View all inquiries</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {inquiries.length ? (
+              inquiries.map((inquiry) => {
+                const product = getInquiryProduct(inquiry.product);
+
+                return (
+                  <Link
+                    key={inquiry.id}
+                    href={`/admin/inquiries/${inquiry.id}`}
+                    className="flex flex-col gap-3 rounded-xl border px-4 py-4 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="space-y-1">
+                      <p className="font-medium">{inquiry.customer_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getInquiryContactSummary(inquiry)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {product?.name ?? "General inquiry"}
+                      </p>
+                    </div>
+                    <div className="space-y-2 sm:text-right">
+                      <Badge
+                        variant="outline"
+                        className={getStatusBadgeClasses(inquiry.status)}
+                      >
+                        {inquiry.status}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground">
+                        {inquiryListDateFormatter.format(
+                          new Date(inquiry.created_at),
+                        )}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })
+            ) : (
+              <AdminEmptyState
+                title="No inquiries yet"
+                description="New customer inquiries will show up here once they start coming in from the public site."
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle>Quick actions</CardTitle>
+            <CardDescription>
+              Jump straight into the most common admin tasks.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button asChild className="w-full justify-start">
+              <Link href="/admin/products/new">
+                <Plus className="h-4 w-4" />
+                Add product
+              </Link>
+            </Button>
+            <Button asChild className="w-full justify-start" variant="outline">
+              <Link href="/admin/categories/new">
+                <Plus className="h-4 w-4" />
+                Add category
+              </Link>
+            </Button>
+            <Button asChild className="w-full justify-start" variant="outline">
+              <Link href="/admin/appearance">
+                <Sparkles className="h-4 w-4" />
+                Customize appearance
+              </Link>
+            </Button>
+            <div className="rounded-xl border bg-muted/30 p-4">
+              <p className="text-sm font-medium">Available sections</p>
+              <div className="mt-3 grid gap-2">
+                {adminNavItems
+                  .filter((item) => item.href !== "/admin")
+                  .map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </main>
+    </div>
   );
 }
