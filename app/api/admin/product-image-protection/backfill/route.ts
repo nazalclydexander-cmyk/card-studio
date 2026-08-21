@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { getAdminAccess } from "@/lib/admin";
 import {
   backfillLegacyProductImage,
+  cleanupLegacyProductImages,
+  dryRunLegacyProductImageCleanup,
   inspectProductImageBackfill,
 } from "@/lib/product-image-storage";
 import { createClient } from "@/lib/supabase/server";
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let mode: "single" | "all" | null = null;
+  let mode: "single" | "all" | "cleanup-legacy" | null = null;
   let confirmAll = false;
   let dryRun = false;
   let limit = 50;
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as
       | {
-          mode?: "single" | "all";
+          mode?: "single" | "all" | "cleanup-legacy";
           confirm?: boolean;
           dryRun?: boolean;
           limit?: number;
@@ -73,7 +75,10 @@ export async function POST(request: Request) {
         }
       | null;
 
-    mode = payload?.mode === "single" || payload?.mode === "all"
+    mode =
+      payload?.mode === "single" ||
+      payload?.mode === "all" ||
+      payload?.mode === "cleanup-legacy"
       ? payload.mode
       : null;
     confirmAll = payload?.confirm === true;
@@ -118,6 +123,17 @@ export async function POST(request: Request) {
     );
   }
 
+  if (mode === "cleanup-legacy" && !dryRun && !confirmAll) {
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Legacy cleanup requires confirm=true so protected preview/original checks are completed before deletion.",
+      },
+      { status: 400 },
+    );
+  }
+
   if (!mode) {
     return NextResponse.json(
       {
@@ -130,6 +146,51 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
+
+  if (mode === "cleanup-legacy") {
+    if (dryRun) {
+      const inspection = await dryRunLegacyProductImageCleanup({ supabase });
+
+      return NextResponse.json({
+        dryRun: true,
+        mode,
+        legacyFound: inspection.legacyFound,
+        safeToDelete: inspection.safeToDelete,
+        blocked: inspection.blocked,
+        objects: inspection.objects.map((object) => ({
+          legacyPath: object.legacyPath,
+          productId: object.productId,
+          productName: object.productName,
+          previewExists: object.previewExists,
+          originalExists: object.originalExists,
+          safeToDelete: object.safeToDelete,
+          blockedReason: object.blockedReason,
+        })),
+      });
+    }
+
+    const result = await cleanupLegacyProductImages({ supabase });
+
+    return NextResponse.json({
+      success: result.success,
+      mode,
+      dryRun: false,
+      processed: result.processed,
+      legacyDeleted: result.legacyDeleted,
+      blocked: result.blocked,
+      failures: result.failures,
+      objects: result.objects.map((object) => ({
+        legacyPath: object.legacyPath,
+        productId: object.productId,
+        productName: object.productName,
+        previewExists: object.previewExists,
+        originalExists: object.originalExists,
+        safeToDelete: object.safeToDelete,
+        blockedReason: object.blockedReason,
+      })),
+    });
+  }
+
   let query = supabase
     .from("product_images")
     .select(
