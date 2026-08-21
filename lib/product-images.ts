@@ -1,4 +1,3 @@
-export const PRODUCT_IMAGES_BUCKET = "product-images";
 export const PRODUCT_IMAGE_ORIGINALS_BUCKET = "product-originals";
 export const PRODUCT_IMAGE_PREVIEWS_BUCKET = "product-previews";
 
@@ -126,7 +125,7 @@ export function isValidProductImagePath(storagePath: string) {
 
 export function getProductImagePublicUrl(
   storagePath: string | null,
-  bucket = PRODUCT_IMAGES_BUCKET,
+  bucket: string,
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -145,17 +144,12 @@ export function getProductImagePublicUrl(
 
 export function getProductPreviewPublicUrl(image: {
   preview_path?: string | null;
-  storage_path?: string | null;
 }) {
   if (image.preview_path) {
     return getProductImagePublicUrl(
       image.preview_path,
       PRODUCT_IMAGE_PREVIEWS_BUCKET,
     );
-  }
-
-  if (image.storage_path) {
-    return getProductImagePublicUrl(image.storage_path, PRODUCT_IMAGES_BUCKET);
   }
 
   return null;
