@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import { requireAdmin } from "@/lib/admin";
 import {
@@ -8,6 +8,7 @@ import {
   type AppearanceFormValues,
   validateAppearanceFormValues,
 } from "@/lib/appearance-settings";
+import { SITE_SETTINGS_CACHE_TAG } from "@/lib/site-settings";
 import { createClient } from "@/lib/supabase/server";
 
 async function getAllProductSlugs() {
@@ -116,6 +117,7 @@ export async function updateAppearanceSettingsAction(
     };
   }
 
+  updateTag(SITE_SETTINGS_CACHE_TAG);
   await revalidateAppearanceRoutes();
 
   return {

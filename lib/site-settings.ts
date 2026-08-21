@@ -1,12 +1,14 @@
-import { cache } from "react";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { cacheLife, cacheTag } from "next/cache";
 
 import {
   DEFAULT_SITE_SETTINGS,
   type SiteSettings,
 } from "@/lib/site-settings-config";
-import { createClient } from "@/lib/supabase/server";
 export { DEFAULT_SITE_SETTINGS };
 export type { SiteSettings };
+
+export const SITE_SETTINGS_CACHE_TAG = "site-settings";
 
 type SiteSettingsRow = SiteSettings & {
   id: boolean;
@@ -73,8 +75,27 @@ function normalizeSiteSettings(row: SiteSettingsRow | null): SiteSettings {
   };
 }
 
-export const getSiteSettings = cache(async () => {
-  const supabase = await createClient();
+function createPublicSiteSettingsClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    },
+  );
+}
+
+export async function getCachedPublicSiteSettings() {
+  "use cache";
+
+  cacheTag(SITE_SETTINGS_CACHE_TAG);
+  cacheLife("max");
+
+  const supabase = createPublicSiteSettingsClient();
   const { data, error } = await supabase
     .from("site_settings")
     .select(siteSettingsSelect)
@@ -93,4 +114,8 @@ export const getSiteSettings = cache(async () => {
   }
 
   return normalizeSiteSettings(data as SiteSettingsRow | null);
-});
+}
+
+export async function getSiteSettings() {
+  return getCachedPublicSiteSettings();
+}
