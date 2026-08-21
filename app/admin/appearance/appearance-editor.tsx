@@ -1046,7 +1046,11 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
               <p className="text-sm font-medium" style={{ color: "var(--site-muted)" }}>
                 Example product card
               </p>
-              <ProductCard product={previewProduct} siteSettings={previewSettings} />
+              <ProductCard
+                product={previewProduct}
+                siteSettings={previewSettings}
+                interactive={false}
+              />
             </div>
           </div>
         </div>
