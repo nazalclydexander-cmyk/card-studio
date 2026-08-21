@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Suspense } from "react";
 
 import { CatalogFilters } from "@/components/public/catalog-filters";
@@ -11,12 +12,7 @@ import { PublicPageHeader } from "@/components/public/public-page-header";
 import { ProductGrid } from "@/components/public/product-grid";
 import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPublicProductsPageData } from "@/lib/public-catalog";
 import { getSiteSettings } from "@/lib/site-settings";
 
@@ -42,8 +38,8 @@ function getShellCardStyle(): CSSProperties {
 
 function ProductsFallback() {
   return (
-    <ProductGrid>
-      {Array.from({ length: 4 }).map((_, index) => (
+    <ProductGrid className="xl:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={index}
           className="overflow-hidden border shadow-sm"
@@ -52,8 +48,8 @@ function ProductsFallback() {
           <div className="aspect-[4/3] bg-muted/60" />
           <div className="space-y-4 p-5">
             <div className="h-4 w-28 rounded-md bg-muted" />
-            <div className="h-7 w-3/4 rounded-md bg-muted" />
-            <div className="h-16 rounded-md bg-muted/70" />
+            <div className="h-8 w-3/4 rounded-md bg-muted" />
+            <div className="h-14 rounded-md bg-muted/70" />
             <div className="h-10 rounded-md bg-muted/80" />
           </div>
         </div>
@@ -112,10 +108,10 @@ async function ProductsContent({
         searchQuery={catalogData.normalizedSearchQuery}
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
+      <div className="flex flex-col gap-4 rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] px-5 py-5 shadow-[0_16px_40px_rgba(15,23,42,0.04)] sm:flex-row sm:items-end sm:justify-between sm:px-6">
+        <div className="space-y-2">
           <p
-            className="text-sm uppercase tracking-[0.22em]"
+            className="text-xs uppercase tracking-[0.24em]"
             style={{ color: "var(--site-accent)" }}
           >
             {catalogData.selectedCategory?.name ?? "All designs"}
@@ -127,17 +123,31 @@ async function ProductsContent({
                   catalogData.products.length === 1 ? "" : "s"
                 } available`}
           </h2>
+          <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
+            Thoughtfully presented invitation and greeting card designs ready to
+            explore.
+          </p>
         </div>
 
-        {catalogData.normalizedSearchQuery ? (
-          <p className="text-sm" style={{ color: "var(--site-muted)" }}>
-            Search results for &quot;{catalogData.normalizedSearchQuery}&quot;
-          </p>
-        ) : null}
+        <div className="space-y-2 text-sm" style={{ color: "var(--site-muted)" }}>
+          {catalogData.normalizedSearchQuery ? (
+            <p>Search results for &quot;{catalogData.normalizedSearchQuery}&quot;</p>
+          ) : (
+            <p>
+              Browse by category or search by theme, style, or product name.
+            </p>
+          )}
+          <Button asChild variant="link" className="h-auto px-0">
+            <Link href="/contact">
+              Request a design
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {catalogData.products.length > 0 ? (
-        <ProductGrid className="2xl:grid-cols-3">
+        <ProductGrid className="xl:grid-cols-3">
           {catalogData.products.map((product) => (
             <ProductCard
               key={product.id}
@@ -172,11 +182,20 @@ async function ProductsPageContent({ searchParams }: ProductsPageProps) {
 
       <main className="min-h-screen">
         <PublicContainer className="flex w-full flex-col gap-8 py-10 sm:py-12">
-          <PublicPageHeader
-            eyebrow="Collection"
-            title="Invitation and greeting card designs"
-            description="Browse elegant, image-led designs for weddings, birthdays, christenings, debuts, greeting cards, and other meaningful celebrations."
-          />
+          <div
+            className="rounded-[calc(var(--site-card-radius)+0.35rem)] border px-6 py-8 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:px-8"
+            style={{
+              background:
+                "linear-gradient(180deg, color-mix(in srgb, var(--site-surface) 92%, white) 0%, color-mix(in srgb, var(--site-secondary) 10%, white) 100%)",
+              borderColor: "color-mix(in srgb, var(--site-text) 9%, transparent)",
+            }}
+          >
+            <PublicPageHeader
+              eyebrow="Collection"
+              title="Invitation and greeting card designs"
+              description="Browse elegant, image-led designs for weddings, birthdays, christenings, debuts, greeting cards, and other meaningful celebrations."
+            />
+          </div>
 
           <Suspense fallback={<ProductsFallback />}>
             <ProductsContent searchParams={searchParams} />

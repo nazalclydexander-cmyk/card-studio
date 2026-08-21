@@ -153,6 +153,7 @@ export function ContactInquiryForm({
         <Button
           type="submit"
           disabled={pending}
+          className="h-11 px-5 shadow-sm"
           style={{
             backgroundColor: "var(--site-primary)",
             color: "var(--site-surface)",
@@ -162,8 +163,8 @@ export function ContactInquiryForm({
           {pending ? "Submitting..." : "Submit inquiry"}
         </Button>
         <p className="text-sm text-muted-foreground">
-          Basic spam protection is included. Production CAPTCHA or rate limiting
-          can be added later if needed.
+          Required fields are marked with an asterisk. Please include enough detail
+          for us to respond helpfully.
         </p>
       </div>
     </form>

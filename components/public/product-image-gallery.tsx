@@ -56,14 +56,30 @@ export function ProductImageGallery({
   if (!sortedImages.length || !selectedImage) {
     return (
       <div
-        className="flex aspect-[4/3] items-center justify-center rounded-[calc(var(--site-card-radius)+0.3rem)] border border-dashed px-6 text-center text-sm shadow-sm"
+        className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[calc(var(--site-card-radius)+0.35rem)] border px-6 text-center text-sm shadow-sm"
         style={{
-          backgroundColor:
-            "color-mix(in srgb, var(--site-secondary) 10%, white)",
+          background:
+            "linear-gradient(180deg, color-mix(in srgb, var(--site-secondary) 18%, white) 0%, color-mix(in srgb, var(--site-background) 90%, white) 100%)",
+          borderColor: "color-mix(in srgb, var(--site-text) 8%, transparent)",
           color: "var(--site-muted)",
         }}
       >
-        No preview available
+        <div
+          aria-hidden="true"
+          className="absolute inset-[10%] rounded-[calc(var(--site-card-radius)+0.1rem)] border bg-white/80 shadow-[0_20px_45px_rgba(15,23,42,0.08)]"
+          style={{
+            borderColor: "color-mix(in srgb, var(--site-text) 6%, transparent)",
+          }}
+        />
+        <div className="relative z-10 space-y-2">
+          <div
+            className="mx-auto h-20 w-28 rounded-2xl border bg-white/90 shadow-sm"
+            style={{
+              borderColor: "color-mix(in srgb, var(--site-text) 7%, transparent)",
+            }}
+          />
+          <p>Design gallery</p>
+        </div>
       </div>
     );
   }
@@ -73,20 +89,27 @@ export function ProductImageGallery({
   return (
     <div className="space-y-4">
       <div
-        className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[calc(var(--site-card-radius)+0.3rem)] border px-5 py-6 shadow-sm sm:px-6"
+        className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[calc(var(--site-card-radius)+0.35rem)] border px-5 py-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)] sm:px-6"
         style={{
-          backgroundColor:
-            "color-mix(in srgb, var(--site-secondary) 10%, white)",
+          background:
+            "linear-gradient(180deg, color-mix(in srgb, var(--site-secondary) 16%, white) 0%, color-mix(in srgb, var(--site-background) 90%, white) 100%)",
           borderColor: "color-mix(in srgb, var(--site-text) 8%, transparent)",
         }}
       >
+        <div
+          aria-hidden="true"
+          className="absolute inset-[6%] rounded-[calc(var(--site-card-radius)+0.1rem)] border bg-white/85 shadow-[0_28px_60px_rgba(15,23,42,0.08)]"
+          style={{
+            borderColor: "color-mix(in srgb, var(--site-text) 6%, transparent)",
+          }}
+        />
         {selectedUrl ? (
           <Image
             src={selectedUrl}
             alt={getImageAltText(selectedImage, productName, 1)}
             fill
             sizes="(max-width: 1024px) 100vw, 56vw"
-            className="object-contain p-4"
+            className="object-contain p-5"
           />
         ) : null}
       </div>

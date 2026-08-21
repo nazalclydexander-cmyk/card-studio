@@ -73,13 +73,30 @@
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    line-height: 1.5;
   }
 
   .site-theme {
     min-height: 100vh;
     background-color: var(--site-background);
+    background-image:
+      radial-gradient(
+        circle at top,
+        color-mix(in srgb, var(--site-secondary) 16%, transparent) 0%,
+        transparent 42%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--site-background) 90%, white) 0%,
+        var(--site-background) 100%
+      );
     color: var(--site-text);
     font-family: var(--site-font-body);
   }
@@ -92,5 +109,10 @@
   .site-theme h6 {
     color: var(--site-text);
     font-family: var(--site-font-heading);
+  }
+
+  .site-theme ::selection {
+    background-color: color-mix(in srgb, var(--site-primary) 22%, white);
+    color: var(--site-text);
   }
 }

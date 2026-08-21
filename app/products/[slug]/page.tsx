@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
@@ -12,8 +13,8 @@ import { ProductGrid } from "@/components/public/product-grid";
 import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
 import {
-  getPrimaryProductImageUrl,
   getCategoryDetails,
+  getPrimaryProductImageUrl,
   getPublicPriceDisplay,
 } from "@/lib/public-catalog-shared";
 import {
@@ -82,16 +83,6 @@ function formatOrientationLabel(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export default async function ProductDetailPage({
-  params,
-}: ProductDetailPageProps) {
-  return (
-    <Suspense fallback={<ProductDetailFallback />}>
-      <ProductDetailContent params={params} />
-    </Suspense>
-  );
-}
-
 function ProductDetailFallback() {
   return (
     <main className="min-h-screen">
@@ -108,6 +99,16 @@ function ProductDetailFallback() {
         </div>
       </PublicContainer>
     </main>
+  );
+}
+
+export default async function ProductDetailPage({
+  params,
+}: ProductDetailPageProps) {
+  return (
+    <Suspense fallback={<ProductDetailFallback />}>
+      <ProductDetailContent params={params} />
+    </Suspense>
   );
 }
 
@@ -185,77 +186,124 @@ async function ProductDetailContent({ params }: ProductDetailPageProps) {
             >
               {category.name}
             </Link>
-            <span aria-hidden="true">/</span>
-            <span className="font-medium" style={{ color: "var(--site-text)" }}>
-              {product.name}
-            </span>
           </nav>
 
-          <section className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:items-start">
+          <section className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] lg:items-start">
             <ProductImageGallery
               images={product.images}
               productName={product.name}
             />
 
             <div className="space-y-7">
-              <div className="space-y-3">
-                <p
-                  className="text-sm font-semibold uppercase tracking-[0.22em]"
-                  style={{ color: "var(--site-accent)" }}
-                >
-                  {category.name}
-                </p>
-                <h1 className="text-4xl leading-tight sm:text-5xl">
-                  {product.name}
-                </h1>
-                {product.short_description?.trim() ? (
+              <div
+                className="rounded-[calc(var(--site-card-radius)+0.3rem)] border bg-[color:var(--site-surface)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-7"
+                style={{
+                  borderColor:
+                    "color-mix(in srgb, var(--site-text) 10%, transparent)",
+                }}
+              >
+                <div className="space-y-4">
                   <p
-                    className="max-w-2xl text-base leading-7 sm:text-lg"
-                    style={{ color: "var(--site-muted)" }}
+                    className="text-xs font-semibold uppercase tracking-[0.24em]"
+                    style={{ color: "var(--site-accent)" }}
                   >
-                    {product.short_description}
+                    {category.name}
                   </p>
-                ) : null}
+                  <h1 className="text-[2.35rem] leading-[1.08] sm:text-[3rem]">
+                    {product.name}
+                  </h1>
+                  {product.short_description?.trim() ? (
+                    <p
+                      className="max-w-2xl text-base leading-7 sm:text-lg"
+                      style={{ color: "var(--site-muted)" }}
+                    >
+                      {product.short_description}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="mt-6 space-y-5">
+                  {priceDisplay.kind === "price" ? (
+                    <div
+                      className="rounded-[calc(var(--site-card-radius)+0.05rem)] border px-5 py-4"
+                      style={{
+                        backgroundColor:
+                          "color-mix(in srgb, var(--site-secondary) 10%, white)",
+                        borderColor:
+                          "color-mix(in srgb, var(--site-text) 8%, transparent)",
+                      }}
+                    >
+                      <p
+                        className="text-xs uppercase tracking-[0.18em]"
+                        style={{ color: "var(--site-muted)" }}
+                      >
+                        Starting at
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold">
+                        {priceDisplay.label}
+                      </p>
+                    </div>
+                  ) : priceDisplay.kind === "hidden" ? (
+                    <div
+                      className="rounded-[calc(var(--site-card-radius)+0.05rem)] border px-5 py-4"
+                      style={{
+                        backgroundColor:
+                          "color-mix(in srgb, var(--site-secondary) 10%, white)",
+                        borderColor:
+                          "color-mix(in srgb, var(--site-text) 8%, transparent)",
+                      }}
+                    >
+                      <p
+                        className="text-sm font-medium"
+                        style={{ color: "var(--site-muted)" }}
+                      >
+                        {priceDisplay.label}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      asChild
+                      size="lg"
+                      className="h-12 px-6 shadow-sm"
+                      style={{
+                        backgroundColor: "var(--site-primary)",
+                        color: "var(--site-surface)",
+                        borderRadius: "var(--site-button-radius)",
+                      }}
+                    >
+                      <Link
+                        href={`/contact?product=${encodeURIComponent(product.slug)}`}
+                      >
+                        Request This Design
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
+                      size="lg"
+                      variant="outline"
+                      className="h-12 px-6"
+                      style={{ borderRadius: "var(--site-button-radius)" }}
+                    >
+                      <Link href="/products">Back to collection</Link>
+                    </Button>
+                  </div>
+                </div>
               </div>
 
-              {priceDisplay.kind === "price" ? (
-                <div
-                  className="rounded-[calc(var(--site-card-radius)+0.1rem)] border px-5 py-4 shadow-sm"
-                  style={{
-                    backgroundColor: "var(--site-surface)",
-                    borderColor:
-                      "color-mix(in srgb, var(--site-text) 10%, transparent)",
-                  }}
-                >
-                  <p
-                    className="text-xs uppercase tracking-[0.18em]"
-                    style={{ color: "var(--site-muted)" }}
-                  >
-                    Starting at
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {priceDisplay.label}
-                  </p>
-                </div>
-              ) : priceDisplay.kind === "hidden" ? (
-                <p className="text-base font-medium" style={{ color: "var(--site-muted)" }}>
-                  {priceDisplay.label}
-                </p>
-              ) : null}
-
               <div
-                className="rounded-[calc(var(--site-card-radius)+0.1rem)] border p-5 shadow-sm"
+                className="rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] p-5 shadow-[0_14px_36px_rgba(15,23,42,0.04)]"
                 style={{
-                  backgroundColor: "var(--site-surface)",
                   borderColor:
                     "color-mix(in srgb, var(--site-text) 10%, transparent)",
                 }}
               >
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <h2 className="text-xl">Design details</h2>
-                    <p className="text-sm" style={{ color: "var(--site-muted)" }}>
-                      Details that help you understand the overall look and presentation.
+                    <h2 className="text-2xl">Design details</h2>
+                    <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
+                      A few practical notes about how this design is presented.
                     </p>
                   </div>
 
@@ -304,76 +352,72 @@ async function ProductDetailContent({ params }: ProductDetailPageProps) {
               </div>
 
               <div className="space-y-3">
-                <h2 className="text-2xl">About this design</h2>
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.24em]"
+                  style={{ color: "var(--site-accent)" }}
+                >
+                  About this design
+                </p>
                 <p className="leading-7" style={{ color: "var(--site-muted)" }}>
                   {hasUsefulDescription
                     ? product.description
-                    : "This design is presented as part of our curated invitation and greeting card collection. More detail can be added as the catalog grows."}
+                    : "This design is part of the current invitation and greeting card collection, with more descriptive detail added as the catalog continues to grow."}
                 </p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button
-                  asChild
-                  size="lg"
-                  className="px-6"
-                  style={{
-                    backgroundColor: "var(--site-primary)",
-                    color: "var(--site-surface)",
-                    borderRadius: "var(--site-button-radius)",
-                  }}
-                >
-                  <Link
-                    href={`/contact?product=${encodeURIComponent(product.slug)}`}
-                  >
-                    Request This Design
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  size="lg"
-                  variant="outline"
-                  className="px-6"
-                  style={{ borderRadius: "var(--site-button-radius)" }}
-                >
-                  <Link href="/products">Back to collection</Link>
-                </Button>
               </div>
             </div>
           </section>
 
-          <section className="space-y-5">
-            <div className="space-y-2">
-              <p
-                className="text-sm font-semibold uppercase tracking-[0.22em]"
-                style={{ color: "var(--site-accent)" }}
-              >
-                Related designs
-              </p>
-              <h2 className="text-3xl sm:text-[2.2rem]">You may also like</h2>
+          <section
+            className="rounded-[calc(var(--site-card-radius)+0.35rem)] border px-6 py-8 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:px-8"
+            style={{
+              background:
+                "linear-gradient(180deg, color-mix(in srgb, var(--site-surface) 96%, white) 0%, color-mix(in srgb, var(--site-secondary) 9%, white) 100%)",
+              borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
+            }}
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-2">
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.24em]"
+                  style={{ color: "var(--site-accent)" }}
+                >
+                  Related designs
+                </p>
+                <h2 className="text-3xl sm:text-[2.2rem]">You may also like</h2>
+              </div>
+              <Button asChild variant="link" className="px-0">
+                <Link href="/products">
+                  Back to collection
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </div>
 
-            {relatedProductsResult.products.length > 0 ? (
-              <ProductGrid className="2xl:grid-cols-3">
-                {relatedProductsResult.products.map((relatedProduct) => (
-                  <ProductCard
-                    key={relatedProduct.id}
-                    product={relatedProduct}
-                    siteSettings={siteSettings}
-                  />
-                ))}
-              </ProductGrid>
-            ) : relatedProductsResult.hasError ? (
-              <PublicStateCard
-                title="Related designs unavailable right now"
-                description="We couldn't load related products for this design at the moment."
-              />
-            ) : (
-              <PublicStateCard
-                title="No related designs available"
-                description="More products from this category will appear here as the catalog grows."
-              />
-            )}
+            <div className="mt-6">
+              {relatedProductsResult.products.length > 0 ? (
+                <ProductGrid className="xl:grid-cols-3">
+                  {relatedProductsResult.products.map((relatedProduct) => (
+                    <ProductCard
+                      key={relatedProduct.id}
+                      product={relatedProduct}
+                      siteSettings={siteSettings}
+                    />
+                  ))}
+                </ProductGrid>
+              ) : relatedProductsResult.hasError ? (
+                <PublicStateCard
+                  title="Related designs unavailable right now"
+                  description="We couldn't load related products for this design at the moment."
+                />
+              ) : (
+                <PublicStateCard
+                  title="More from the collection"
+                  description="Browse the full collection to explore additional invitation and greeting card designs."
+                  actionHref="/products"
+                  actionLabel="Browse all designs"
+                />
+              )}
+            </div>
           </section>
         </PublicContainer>
       </main>

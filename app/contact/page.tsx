@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Suspense } from "react";
 
 import { ContactInquiryForm } from "@/components/public/contact-inquiry-form";
@@ -54,36 +55,44 @@ function ProductContextCard({
 
   return (
     <div
-      className="grid gap-4 rounded-[calc(var(--site-card-radius)+0.1rem)] border bg-[color:var(--site-surface)] p-4 shadow-sm sm:grid-cols-[112px_minmax(0,1fr)] sm:p-5"
+      className="grid gap-4 rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.04)] sm:grid-cols-[128px_minmax(0,1fr)] sm:p-5"
       style={{
         borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
       }}
     >
       <div
-        className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border"
+        className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[calc(var(--site-card-radius)+0.1rem)] border"
         style={{
-          backgroundColor: "color-mix(in srgb, var(--site-secondary) 12%, white)",
+          background:
+            "linear-gradient(180deg, color-mix(in srgb, var(--site-secondary) 14%, white) 0%, color-mix(in srgb, var(--site-background) 92%, white) 100%)",
           borderColor: "color-mix(in srgb, var(--site-text) 8%, transparent)",
         }}
       >
+        <div
+          aria-hidden="true"
+          className="absolute inset-[10%] rounded-[calc(var(--site-card-radius)-0.1rem)] border bg-white/85 shadow-sm"
+          style={{
+            borderColor: "color-mix(in srgb, var(--site-text) 6%, transparent)",
+          }}
+        />
         {imageUrl ? (
           <Image
             src={imageUrl}
             alt={product.name}
             fill
-            sizes="112px"
-            className="object-contain p-2"
+            sizes="128px"
+            className="object-contain p-3"
           />
         ) : (
-          <div className="px-3 text-center text-xs" style={{ color: "var(--site-muted)" }}>
-            No image
+          <div className="relative z-10 px-3 text-center text-xs" style={{ color: "var(--site-muted)" }}>
+            Design selected
           </div>
         )}
       </div>
 
       <div className="space-y-2">
         <p
-          className="text-sm font-semibold uppercase tracking-[0.22em]"
+          className="text-xs font-semibold uppercase tracking-[0.24em]"
           style={{ color: "var(--site-accent)" }}
         >
           You&apos;re inquiring about
@@ -119,7 +128,7 @@ function ContactInformationCard({
 
   return (
     <aside
-      className="space-y-6 rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] p-6 shadow-sm"
+      className="space-y-6 rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] p-6 shadow-[0_16px_40px_rgba(15,23,42,0.04)]"
       style={{
         borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
       }}
@@ -128,8 +137,8 @@ function ContactInformationCard({
         <div className="space-y-4">
           <div className="space-y-1">
             <h2 className="text-2xl">Contact information</h2>
-            <p className="text-sm" style={{ color: "var(--site-muted)" }}>
-              Reach out directly using any available channel below.
+            <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
+              Reach out directly if you already know the design you want.
             </p>
           </div>
 
@@ -225,13 +234,30 @@ async function ContactContent({ searchParams }: ContactPageProps) {
 
       <main className="min-h-screen">
         <PublicContainer className="flex w-full flex-col gap-8 py-10 sm:py-12">
-          <PublicPageHeader
-            eyebrow="Contact"
-            title={"Let's talk about your design"}
-            description={
-              "Tell us about the invitation or greeting card design you're considering, and we'll follow up using the contact details you provide."
-            }
-          />
+          <div
+            className="rounded-[calc(var(--site-card-radius)+0.35rem)] border px-6 py-8 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:px-8"
+            style={{
+              background:
+                "linear-gradient(180deg, color-mix(in srgb, var(--site-surface) 94%, white) 0%, color-mix(in srgb, var(--site-secondary) 11%, white) 100%)",
+              borderColor: "color-mix(in srgb, var(--site-text) 9%, transparent)",
+            }}
+          >
+            <PublicPageHeader
+              eyebrow="Contact"
+              title={"Let's talk about your design"}
+              description={
+                "Tell us about the invitation or greeting card design you're considering, and we'll follow up using the contact details you provide."
+              }
+              actions={
+                <Button asChild variant="link" className="h-auto px-0">
+                  <Link href="/products">
+                    Browse collection
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              }
+            />
+          </div>
 
           {productResult.hasError ? (
             <PublicStateCard
@@ -254,14 +280,20 @@ async function ContactContent({ searchParams }: ContactPageProps) {
 
           {submitted ? (
             <div
-              className="rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] px-6 py-10 shadow-sm"
+              className="rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] px-6 py-10 shadow-[0_16px_40px_rgba(15,23,42,0.05)]"
               style={{
                 borderColor:
                   "color-mix(in srgb, var(--site-text) 10%, transparent)",
               }}
             >
               <div className="max-w-2xl space-y-4">
-                <h2 className="text-3xl">Inquiry received</h2>
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.24em]"
+                  style={{ color: "var(--site-accent)" }}
+                >
+                  Inquiry received
+                </p>
+                <h2 className="text-3xl">Thank you for reaching out</h2>
                 <p className="text-base leading-7" style={{ color: "var(--site-muted)" }}>
                   Thank you for your interest
                   {product ? " in this design" : ""}. We&apos;ll get back to you
@@ -270,6 +302,7 @@ async function ContactContent({ searchParams }: ContactPageProps) {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     asChild
+                    className="h-11"
                     style={{
                       backgroundColor: "var(--site-primary)",
                       color: "var(--site-surface)",
@@ -282,6 +315,7 @@ async function ContactContent({ searchParams }: ContactPageProps) {
                     <Button
                       asChild
                       variant="outline"
+                      className="h-11"
                       style={{ borderRadius: "var(--site-button-radius)" }}
                     >
                       <Link href={`/products/${product.slug}`}>
@@ -295,14 +329,20 @@ async function ContactContent({ searchParams }: ContactPageProps) {
           ) : (
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
               <div
-                className="rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] p-6 shadow-sm sm:p-7"
+                className="rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] p-6 shadow-[0_16px_40px_rgba(15,23,42,0.04)] sm:p-7"
                 style={{
                   borderColor:
                     "color-mix(in srgb, var(--site-text) 10%, transparent)",
                 }}
               >
                 <div className="mb-6 space-y-2">
-                  <h2 className="text-2xl">Inquiry form</h2>
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.24em]"
+                    style={{ color: "var(--site-accent)" }}
+                  >
+                    Inquiry form
+                  </p>
+                  <h2 className="text-2xl">Tell us what you need</h2>
                   <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
                     Share your design preference, event details, and quantity so
                     we can respond with the right next steps.

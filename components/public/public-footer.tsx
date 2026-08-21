@@ -32,10 +32,16 @@ export function PublicFooter({ siteSettings }: PublicFooterProps) {
 
   return (
     <footer className="border-t border-black/5 bg-[color:color-mix(in_srgb,var(--site-surface)_92%,white)]">
-      <PublicContainer className="grid gap-10 py-10 md:grid-cols-[1.2fr_0.8fr_1fr] lg:py-12">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xl font-semibold">{siteSettings.site_name}</p>
+      <PublicContainer className="grid gap-10 py-10 md:grid-cols-[1.15fr_0.8fr_1fr] lg:py-12">
+        <div className="space-y-5">
+          <div className="space-y-3">
+            <p
+              className="text-xs font-semibold uppercase tracking-[0.3em]"
+              style={{ color: "var(--site-accent)" }}
+            >
+              Elegant paper goods
+            </p>
+            <p className="text-2xl font-semibold">{siteSettings.site_name}</p>
             <p
               className="max-w-md text-sm leading-6"
               style={{ color: "var(--site-muted)" }}
@@ -43,6 +49,17 @@ export function PublicFooter({ siteSettings }: PublicFooterProps) {
               {siteSettings.tagline}
             </p>
           </div>
+
+          <Link
+            href="/contact"
+            className="inline-flex rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            style={{
+              borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
+              borderRadius: "var(--site-button-radius)",
+            }}
+          >
+            Request a design
+          </Link>
         </div>
 
         <div className="space-y-3 text-sm">

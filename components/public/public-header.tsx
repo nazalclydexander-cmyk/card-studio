@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PublicContainer } from "@/components/public/public-container";
@@ -68,8 +68,8 @@ export function PublicHeader({ siteSettings, currentPath }: PublicHeaderProps) {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-black/5 bg-[color:color-mix(in_srgb,var(--site-background)_88%,white)]/95 backdrop-blur supports-[backdrop-filter]:bg-[color:color-mix(in_srgb,var(--site-background)_86%,white)]/85">
-      <PublicContainer className="flex items-center justify-between gap-4 py-3.5">
+    <header className="sticky top-0 z-40 border-b border-black/5 bg-[color:color-mix(in_srgb,var(--site-background)_90%,white)]/95 shadow-[0_8px_30px_rgba(15,23,42,0.04)] backdrop-blur supports-[backdrop-filter]:bg-[color:color-mix(in_srgb,var(--site-background)_88%,white)]/88">
+      <PublicContainer className="flex items-center justify-between gap-4 py-3">
         <Link
           href="/"
           className="min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -77,7 +77,7 @@ export function PublicHeader({ siteSettings, currentPath }: PublicHeaderProps) {
         >
           <div className="flex items-center gap-3">
             {logoUrl ? (
-              <div className="relative h-11 w-11 flex-none overflow-hidden rounded-xl border border-black/10 bg-white/70 sm:h-12 sm:w-12">
+              <div className="relative h-11 w-11 flex-none overflow-hidden rounded-2xl border border-black/10 bg-white/85 shadow-sm sm:h-12 sm:w-12">
                 <Image
                   src={logoUrl}
                   alt={`${siteSettings.site_name} logo`}
@@ -89,7 +89,13 @@ export function PublicHeader({ siteSettings, currentPath }: PublicHeaderProps) {
             ) : null}
 
             <div className="min-w-0 space-y-0.5">
-              <p className="truncate text-lg font-semibold tracking-[0.01em]">
+              <p
+                className="truncate text-[0.68rem] font-semibold uppercase tracking-[0.32em]"
+                style={{ color: "var(--site-accent)" }}
+              >
+                Invitation collection
+              </p>
+              <p className="truncate text-lg font-semibold tracking-[0.01em] sm:text-[1.1rem]">
                 {siteSettings.site_name}
               </p>
               <p
@@ -131,11 +137,17 @@ export function PublicHeader({ siteSettings, currentPath }: PublicHeaderProps) {
 
           <Button
             asChild
-            variant="outline"
-            className="ml-3"
-            style={{ borderRadius: "var(--site-button-radius)" }}
+            className="ml-3 h-10 px-5 shadow-sm"
+            style={{
+              backgroundColor: "var(--site-primary)",
+              color: "var(--site-surface)",
+              borderRadius: "var(--site-button-radius)",
+            }}
           >
-            <Link href="/contact">Request Design</Link>
+            <Link href="/contact">
+              Request Design
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </Button>
         </nav>
 
@@ -162,7 +174,7 @@ export function PublicHeader({ siteSettings, currentPath }: PublicHeaderProps) {
       >
         <div
           className={cn(
-            "fixed inset-x-0 top-[73px] bottom-0 bg-black/20 transition-opacity",
+            "fixed inset-x-0 top-[69px] bottom-0 bg-black/25 transition-opacity",
             open ? "opacity-100" : "opacity-0",
           )}
           onClick={() => setOpen(false)}
@@ -171,7 +183,7 @@ export function PublicHeader({ siteSettings, currentPath }: PublicHeaderProps) {
         <div
           id="public-mobile-navigation"
           className={cn(
-            "absolute inset-x-0 top-full border-b border-black/5 bg-[color:var(--site-surface)] shadow-lg transition-[opacity,transform]",
+            "absolute inset-x-0 top-full border-b border-black/5 bg-[color:var(--site-surface)] shadow-xl transition-[opacity,transform]",
             open ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0",
           )}
         >
@@ -211,7 +223,7 @@ export function PublicHeader({ siteSettings, currentPath }: PublicHeaderProps) {
 
               <Button
                 asChild
-                className="mt-2 w-full"
+                className="mt-2 h-11 w-full shadow-sm"
                 style={{
                   backgroundColor: "var(--site-primary)",
                   color: "var(--site-surface)",

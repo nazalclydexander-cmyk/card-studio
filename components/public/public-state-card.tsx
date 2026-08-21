@@ -20,7 +20,7 @@ export function PublicStateCard({
 }: PublicStateCardProps) {
   return (
     <Card
-      className="rounded-[calc(var(--site-card-radius)+0.15rem)] shadow-sm"
+      className="rounded-[calc(var(--site-card-radius)+0.18rem)] shadow-[0_14px_36px_rgba(15,23,42,0.04)]"
       style={{
         backgroundColor: "var(--site-surface)",
         borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
@@ -34,7 +34,7 @@ export function PublicStateCard({
       </CardHeader>
       {actionHref && actionLabel ? (
         <div className="px-6 pb-6">
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" style={{ borderRadius: "var(--site-button-radius)" }}>
             <Link href={actionHref}>{actionLabel}</Link>
           </Button>
         </div>

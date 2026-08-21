@@ -19,21 +19,21 @@ export function PublicPageHeader({
 }: PublicPageHeaderProps) {
   return (
     <div className={cn("space-y-5", className)}>
-      <div className="space-y-3">
+      <div className="space-y-4">
         {eyebrow ? (
           <p
-            className="text-sm font-semibold uppercase tracking-[0.24em]"
+            className="text-xs font-semibold uppercase tracking-[0.28em] sm:text-sm"
             style={{ color: "var(--site-accent)" }}
           >
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="max-w-4xl text-4xl leading-tight sm:text-5xl lg:text-[3rem] lg:leading-[1.08]">
+        <h1 className="max-w-4xl text-[2.5rem] leading-[1.08] sm:text-[3rem] lg:text-[3.45rem]">
           {title}
         </h1>
         {description ? (
           <p
-            className="max-w-3xl text-base leading-7 sm:text-lg"
+            className="max-w-3xl text-base leading-7 sm:text-[1.05rem]"
             style={{ color: "var(--site-muted)" }}
           >
             {description}

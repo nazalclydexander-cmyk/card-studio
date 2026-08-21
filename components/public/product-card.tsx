@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import {
   getCategoryDetails,
@@ -24,7 +25,7 @@ export function ProductCard({ product, siteSettings }: ProductCardProps) {
 
   return (
     <article
-      className="group flex h-full flex-col overflow-hidden rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] transition-shadow hover:shadow-md"
+      className="group flex h-full flex-col overflow-hidden rounded-[calc(var(--site-card-radius)+0.25rem)] border bg-[color:var(--site-surface)] shadow-[0_12px_32px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(15,23,42,0.1)] motion-reduce:transform-none"
       style={{
         borderColor: "color-mix(in srgb, var(--site-text) 8%, transparent)",
       }}
@@ -37,32 +38,49 @@ export function ProductCard({ product, siteSettings }: ProductCardProps) {
         <div
           className="relative flex aspect-[4/3] items-center justify-center overflow-hidden border-b px-5 py-6 sm:px-6"
           style={{
-            backgroundColor:
-              "color-mix(in srgb, var(--site-secondary) 10%, white)",
+            background:
+              "linear-gradient(180deg, color-mix(in srgb, var(--site-secondary) 18%, white) 0%, color-mix(in srgb, var(--site-background) 88%, white) 100%)",
             borderColor:
               "color-mix(in srgb, var(--site-text) 7%, transparent)",
           }}
         >
+          <div
+            aria-hidden="true"
+            className="absolute inset-[8%] rounded-[calc(var(--site-card-radius)+0.1rem)] border bg-white/80 shadow-[0_20px_45px_rgba(15,23,42,0.08)]"
+            style={{
+              borderColor:
+                "color-mix(in srgb, var(--site-text) 6%, transparent)",
+            }}
+          />
           {imageUrl ? (
             <Image
               src={imageUrl}
               alt={imageAlt}
               fill
               sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 33vw"
-              className="object-contain p-4 transition-transform duration-300 group-hover:scale-[1.01]"
+              className="object-contain p-5 transition-transform duration-300 group-hover:scale-[1.02] motion-reduce:transform-none"
             />
           ) : (
             <div
-              className="flex h-full w-full items-center justify-center rounded-[calc(var(--site-card-radius)-0.1rem)] border border-dashed px-6 text-center text-sm"
+              className="relative z-10 flex h-full w-full items-center justify-center px-6 text-center"
               style={{ color: "var(--site-muted)" }}
             >
-              Preview unavailable
+              <div className="space-y-2">
+                <div
+                  className="mx-auto h-16 w-24 rounded-2xl border bg-white/80 shadow-sm"
+                  style={{
+                    borderColor:
+                      "color-mix(in srgb, var(--site-text) 7%, transparent)",
+                  }}
+                />
+                <p className="text-sm">Design preview</p>
+              </div>
             </div>
           )}
         </div>
       </Link>
 
-      <div className="flex h-full flex-col gap-4 p-5 sm:p-6">
+      <div className="flex h-full flex-col gap-5 p-5 sm:p-6">
         <div className="space-y-3">
           <p
             className="text-xs font-semibold uppercase tracking-[0.22em]"
@@ -72,7 +90,7 @@ export function ProductCard({ product, siteSettings }: ProductCardProps) {
           </p>
 
           <div className="space-y-2">
-            <h3 className="text-xl leading-snug">
+            <h3 className="text-[1.45rem] leading-snug">
               <Link
                 href={productHref}
                 className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -92,8 +110,8 @@ export function ProductCard({ product, siteSettings }: ProductCardProps) {
           </div>
         </div>
 
-        <div className="mt-auto flex items-end justify-between gap-4">
-          <div className="space-y-2">
+        <div className="mt-auto flex items-end justify-between gap-4 border-t pt-4">
+          <div className="space-y-1.5">
             {priceDisplay.kind === "price" ? (
               <div className="space-y-1">
                 <p
@@ -115,16 +133,17 @@ export function ProductCard({ product, siteSettings }: ProductCardProps) {
 
             {product.customizable ? (
               <p className="text-sm" style={{ color: "var(--site-muted)" }}>
-                Customizable
+                Customizable for your event
               </p>
             ) : null}
           </div>
 
           <Link
             href={productHref}
-            className="inline-flex items-center justify-center rounded-md px-0 py-2 text-sm font-medium transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-md px-0 py-2 text-sm font-medium transition-transform duration-300 hover:translate-x-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none"
           >
             View Design
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>

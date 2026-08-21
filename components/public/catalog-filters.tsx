@@ -42,11 +42,33 @@ export function CatalogFilters({
   return (
     <section
       id="category-filter"
-      className="space-y-5 rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] p-5 shadow-sm sm:p-6"
+      className="space-y-5 rounded-[calc(var(--site-card-radius)+0.25rem)] border bg-[color:var(--site-surface)] p-5 shadow-[0_16px_40px_rgba(15,23,42,0.04)] sm:p-6"
       style={{
         borderColor: "color-mix(in srgb, var(--site-text) 8%, transparent)",
       }}
     >
+      <div className="space-y-2">
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.28em]"
+          style={{ color: "var(--site-accent)" }}
+        >
+          Refine the collection
+        </p>
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-2xl sm:text-[2rem]">Find a design that fits your celebration</h2>
+            <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
+              Search by name or theme, then narrow the collection by category.
+            </p>
+          </div>
+          {hasActiveFilters ? (
+            <p className="text-xs uppercase tracking-[0.22em]" style={{ color: "var(--site-muted)" }}>
+              Filter active
+            </p>
+          ) : null}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <form
           action="/products"
@@ -91,21 +113,16 @@ export function CatalogFilters({
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-medium">Browse by category</p>
-          {selectedCategorySlug ? (
-            <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "var(--site-muted)" }}>
-              Filter active
-            </p>
-          ) : null}
         </div>
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           <Link
             href={buildProductsHref({ query: searchQuery || null })}
             aria-current={!selectedCategorySlug ? "page" : undefined}
             className={cn(
-              "shrink-0 rounded-full border px-4 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "shrink-0 rounded-full border px-4 py-2 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               !selectedCategorySlug
-                ? "text-white"
-                : "hover:bg-black/5",
+                ? "text-white shadow-sm"
+                : "hover:-translate-y-0.5 hover:bg-black/5",
             )}
             style={{
               borderRadius: "var(--site-button-radius)",
@@ -132,8 +149,10 @@ export function CatalogFilters({
                 })}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "shrink-0 rounded-full border px-4 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  active ? "text-white" : "hover:bg-black/5",
+                  "shrink-0 rounded-full border px-4 py-2 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  active
+                    ? "text-white shadow-sm"
+                    : "hover:-translate-y-0.5 hover:bg-black/5",
                 )}
                 style={{
                   borderRadius: "var(--site-button-radius)",
