@@ -41,7 +41,7 @@ export function ContactInquiryForm({
   const values = state.values;
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form action={formAction} className="space-y-6">
       <input
         type="hidden"
         name="product_slug"
@@ -61,8 +61,8 @@ export function ContactInquiryForm({
 
       {state.message ? <AdminNotice tone="error">{state.message}</AdminNotice> : null}
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2">
+      <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
+        <div className="space-y-2">
           <Label htmlFor="customer_name">Name *</Label>
           <Input
             id="customer_name"
@@ -102,11 +102,6 @@ export function ContactInquiryForm({
           />
           <FieldError message={state.fieldErrors.phone} />
         </div>
-      </div>
-
-      <FieldError message={state.fieldErrors.contact_method} />
-
-      <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="event_date">Event Date</Label>
           <Input
@@ -119,8 +114,12 @@ export function ContactInquiryForm({
           />
           <FieldError message={state.fieldErrors.event_date} />
         </div>
+      </div>
 
-        <div className="space-y-2">
+      <FieldError message={state.fieldErrors.contact_method} />
+
+      <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
+        <div className="space-y-2 md:max-w-[220px]">
           <Label htmlFor="quantity">Quantity</Label>
           <Input
             id="quantity"
@@ -144,12 +143,12 @@ export function ContactInquiryForm({
           defaultValue={values.message}
           required
           maxLength={2000}
-          className="min-h-[190px]"
+          className="min-h-[132px] sm:min-h-[144px]"
         />
         <FieldError message={state.fieldErrors.message} />
       </div>
 
-      <div className="space-y-3 border-t pt-5">
+      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
         <Button
           type="submit"
           disabled={pending}

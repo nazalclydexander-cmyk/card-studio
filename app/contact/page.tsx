@@ -7,7 +7,6 @@ import { ContactInquiryForm } from "@/components/public/contact-inquiry-form";
 import { PublicContainer } from "@/components/public/public-container";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
-import { PublicPageHeader } from "@/components/public/public-page-header";
 import { PublicStateCard } from "@/components/public/public-state-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,13 +54,13 @@ function ProductContextCard({
 
   return (
     <div
-      className="grid gap-4 rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-[color:var(--site-surface)] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.04)] sm:grid-cols-[128px_minmax(0,1fr)] sm:p-5"
+      className="grid gap-3 rounded-[calc(var(--site-card-radius)+0.05rem)] border bg-[color:var(--site-surface)] p-3 shadow-[0_10px_26px_rgba(15,23,42,0.03)] sm:grid-cols-[72px_minmax(0,1fr)]"
       style={{
         borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
       }}
     >
       <div
-        className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[calc(var(--site-card-radius)+0.1rem)] border"
+        className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[calc(var(--site-card-radius)+0.02rem)] border"
         style={{
           background:
             "linear-gradient(180deg, color-mix(in srgb, var(--site-secondary) 14%, white) 0%, color-mix(in srgb, var(--site-background) 92%, white) 100%)",
@@ -80,8 +79,8 @@ function ProductContextCard({
             src={imageUrl}
             alt={product.name}
             fill
-            sizes="128px"
-            className="object-contain p-3"
+            sizes="72px"
+            className="object-contain p-2"
           />
         ) : (
           <div className="relative z-10 px-3 text-center text-xs" style={{ color: "var(--site-muted)" }}>
@@ -90,16 +89,16 @@ function ProductContextCard({
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <p
           className="text-xs font-semibold uppercase tracking-[0.24em]"
           style={{ color: "var(--site-accent)" }}
         >
-          You&apos;re inquiring about
+          Design requested
         </p>
-        <h2 className="text-2xl leading-tight">{product.name}</h2>
+        <h2 className="text-lg leading-tight sm:text-[1.15rem]">{product.name}</h2>
         {product.short_description?.trim() ? (
-          <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
+          <p className="text-sm leading-5" style={{ color: "var(--site-muted)" }}>
             {product.short_description}
           </p>
         ) : null}
@@ -110,8 +109,10 @@ function ProductContextCard({
 
 function ContactInformationCard({
   siteSettings,
+  compact = false,
 }: {
   siteSettings: Awaited<ReturnType<typeof getSiteSettings>>;
+  compact?: boolean;
 }) {
   const hasContactInfo = Boolean(
     siteSettings.contact_email ||
@@ -128,21 +129,23 @@ function ContactInformationCard({
 
   return (
     <aside
-      className="space-y-6 rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] p-6 shadow-[0_16px_40px_rgba(15,23,42,0.04)]"
+      className={`rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] shadow-[0_16px_40px_rgba(15,23,42,0.04)] ${
+        compact ? "space-y-4 p-4" : "space-y-6 p-6"
+      }`}
       style={{
         borderColor: "color-mix(in srgb, var(--site-text) 10%, transparent)",
       }}
     >
       {hasContactInfo ? (
-        <div className="space-y-4">
+        <div className={compact ? "space-y-3" : "space-y-4"}>
           <div className="space-y-1">
-            <h2 className="text-2xl">Contact information</h2>
+            <h2 className={compact ? "text-lg" : "text-2xl"}>Contact information</h2>
             <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
               Reach out directly if you already know the design you want.
             </p>
           </div>
 
-          <div className="space-y-3 text-sm">
+          <div className={`text-sm ${compact ? "space-y-2.5" : "space-y-3"}`}>
             {siteSettings.contact_email ? (
               <div className="space-y-1">
                 <p className="font-medium">Email</p>
@@ -180,8 +183,8 @@ function ContactInformationCard({
       ) : null}
 
       {hasSocialLinks ? (
-        <div className="space-y-3 text-sm">
-          <h3 className="text-lg font-semibold">Follow us</h3>
+        <div className={`${compact ? "space-y-2.5" : "space-y-3"} text-sm`}>
+          <h3 className={`${compact ? "text-base" : "text-lg"} font-semibold`}>Follow us</h3>
           <div className="flex flex-col gap-2">
             {siteSettings.facebook_url ? (
               <a
@@ -233,31 +236,7 @@ async function ContactContent({ searchParams }: ContactPageProps) {
       <PublicHeader siteSettings={siteSettings} currentPath="/contact" />
 
       <main className="min-h-screen">
-        <PublicContainer className="flex w-full flex-col gap-8 py-10 sm:py-12">
-          <div
-            className="rounded-[calc(var(--site-card-radius)+0.35rem)] border px-6 py-8 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:px-8"
-            style={{
-              background:
-                "linear-gradient(180deg, color-mix(in srgb, var(--site-surface) 94%, white) 0%, color-mix(in srgb, var(--site-secondary) 11%, white) 100%)",
-              borderColor: "color-mix(in srgb, var(--site-text) 9%, transparent)",
-            }}
-          >
-            <PublicPageHeader
-              eyebrow="Contact"
-              title={"Let's talk about your design"}
-              description={
-                "Tell us about the invitation or greeting card design you're considering, and we'll follow up using the contact details you provide."
-              }
-              actions={
-                <Button asChild variant="link" className="h-auto px-0">
-                  <Link href="/products">
-                    Browse collection
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              }
-            />
-          </div>
+        <PublicContainer className="flex w-full flex-col gap-4 py-5 sm:gap-5 sm:py-6 lg:gap-6 lg:py-6">
 
           {productResult.hasError ? (
             <PublicStateCard
@@ -265,7 +244,7 @@ async function ContactContent({ searchParams }: ContactPageProps) {
               description="You can still continue with a general inquiry below, or try the product link again in a moment."
             />
           ) : invalidProductSelection ? (
-            <Card>
+            <Card className="mx-auto w-full max-w-5xl">
               <CardHeader>
                 <CardTitle>Selected product unavailable</CardTitle>
                 <CardDescription>
@@ -276,11 +255,9 @@ async function ContactContent({ searchParams }: ContactPageProps) {
             </Card>
           ) : null}
 
-          <ProductContextCard product={product} />
-
           {submitted ? (
             <div
-              className="rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] px-6 py-10 shadow-[0_16px_40px_rgba(15,23,42,0.05)]"
+              className="mx-auto w-full max-w-5xl rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] px-6 py-8 shadow-[0_16px_40px_rgba(15,23,42,0.05)] sm:px-7"
               style={{
                 borderColor:
                   "color-mix(in srgb, var(--site-text) 10%, transparent)",
@@ -327,31 +304,65 @@ async function ContactContent({ searchParams }: ContactPageProps) {
               </div>
             </div>
           ) : (
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
+            <div className="mx-auto grid w-full max-w-[1180px] gap-4 lg:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.22fr)] lg:items-start lg:gap-6">
               <div
-                className="rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] p-6 shadow-[0_16px_40px_rgba(15,23,42,0.04)] sm:p-7"
+                className="space-y-4 rounded-[calc(var(--site-card-radius)+0.25rem)] border px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:px-6 sm:py-6"
+                style={{
+                  background:
+                    "linear-gradient(180deg, color-mix(in srgb, var(--site-surface) 94%, white) 0%, color-mix(in srgb, var(--site-secondary) 11%, white) 100%)",
+                  borderColor:
+                    "color-mix(in srgb, var(--site-text) 9%, transparent)",
+                }}
+              >
+                <div className="space-y-2">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.24em]"
+                    style={{ color: "var(--site-accent)" }}
+                  >
+                    Contact
+                  </p>
+                  <h1 className="text-[2rem] leading-[1.05] sm:text-[2.3rem] lg:text-[2.6rem]">
+                    Let&apos;s talk about your design
+                  </h1>
+                  <p className="max-w-md text-sm leading-6" style={{ color: "var(--site-muted)" }}>
+                    Tell us about the invitation or greeting card design you&apos;re considering, and we&apos;ll follow up with the right next steps.
+                  </p>
+                  <Button asChild variant="link" className="h-auto px-0">
+                    <Link href="/products">
+                      Browse collection
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+
+                <ContactInformationCard siteSettings={siteSettings} compact />
+              </div>
+
+              <div
+                className="rounded-[calc(var(--site-card-radius)+0.2rem)] border bg-[color:var(--site-surface)] p-5 shadow-[0_16px_40px_rgba(15,23,42,0.04)] sm:p-6"
                 style={{
                   borderColor:
                     "color-mix(in srgb, var(--site-text) 10%, transparent)",
                 }}
               >
-                <div className="mb-6 space-y-2">
+                <div className="mb-4 space-y-1.5">
                   <p
                     className="text-xs font-semibold uppercase tracking-[0.24em]"
                     style={{ color: "var(--site-accent)" }}
                   >
                     Inquiry form
                   </p>
-                  <h2 className="text-2xl">Tell us what you need</h2>
-                  <p className="text-sm leading-6" style={{ color: "var(--site-muted)" }}>
-                    Share your design preference, event details, and quantity so
-                    we can respond with the right next steps.
+                  <h2 className="text-[1.55rem] leading-tight">Tell us what you need</h2>
+                  <p className="text-sm leading-5" style={{ color: "var(--site-muted)" }}>
+                    Share your event details and preferred design.
                   </p>
                 </div>
-                <ContactInquiryForm productSlug={product?.slug ?? null} />
-              </div>
 
-              <ContactInformationCard siteSettings={siteSettings} />
+                <ProductContextCard product={product} />
+                <div className={product ? "mt-4" : ""}>
+                  <ContactInquiryForm productSlug={product?.slug ?? null} />
+                </div>
+              </div>
             </div>
           )}
         </PublicContainer>
