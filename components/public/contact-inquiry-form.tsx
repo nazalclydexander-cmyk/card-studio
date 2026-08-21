@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 
 import { submitCustomerInquiryAction } from "@/app/contact/actions";
 import { AdminNotice } from "@/components/admin/admin-notice";
@@ -28,6 +28,9 @@ function FieldError({ message }: { message?: string }) {
 export function ContactInquiryForm({
   productSlug,
 }: ContactInquiryFormProps) {
+  const submitterTimeZoneRef = useRef<HTMLInputElement>(null);
+  const submitterUtcOffsetMinutesRef = useRef<HTMLInputElement>(null);
+
   const initialValues: CustomerInquiryFormValues = {
     ...createInitialCustomerInquiryFormState().values,
     product_slug: productSlug ?? "",
@@ -38,6 +41,25 @@ export function ContactInquiryForm({
     createInitialCustomerInquiryFormState(initialValues),
   );
 
+  useEffect(() => {
+    const submitterTimeZoneInput = submitterTimeZoneRef.current;
+    const submitterUtcOffsetInput = submitterUtcOffsetMinutesRef.current;
+
+    if (!submitterTimeZoneInput || !submitterUtcOffsetInput) {
+      return;
+    }
+
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      submitterTimeZoneInput.value = typeof timeZone === "string" ? timeZone : "";
+    } catch {
+      submitterTimeZoneInput.value = "";
+    }
+
+    submitterUtcOffsetInput.value = String(-new Date().getTimezoneOffset());
+  }, []);
+
   const values = state.values;
 
   return (
@@ -47,6 +69,18 @@ export function ContactInquiryForm({
         name="product_slug"
         value={values.product_slug}
         readOnly
+      />
+      <input
+        ref={submitterTimeZoneRef}
+        type="hidden"
+        name="submitter_timezone"
+        defaultValue={values.submitter_timezone}
+      />
+      <input
+        ref={submitterUtcOffsetMinutesRef}
+        type="hidden"
+        name="submitter_utc_offset_minutes"
+        defaultValue={values.submitter_utc_offset_minutes}
       />
       <div className="hidden" aria-hidden="true">
         <Label htmlFor="website">Website</Label>

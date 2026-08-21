@@ -3,6 +3,46 @@ import { expect, test } from "@playwright/test";
 import { expectNoHorizontalOverflow, monitorPageRuntime } from "./helpers/runtime";
 
 test.describe("public smoke", () => {
+  test("contact form captures Asia/Manila timezone metadata", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ timezoneId: "Asia/Manila" });
+    const page = await context.newPage();
+    const runtime = monitorPageRuntime(page);
+
+    await page.goto("/contact");
+
+    await expect(page.locator('input[name="submitter_timezone"]')).toHaveValue(
+      "Asia/Manila",
+    );
+    await expect(
+      page.locator('input[name="submitter_utc_offset_minutes"]'),
+    ).toHaveValue("480");
+
+    await runtime.assertHealthy();
+    await context.close();
+  });
+
+  test("contact form captures America/New_York timezone metadata", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ timezoneId: "America/New_York" });
+    const page = await context.newPage();
+    const runtime = monitorPageRuntime(page);
+
+    await page.goto("/contact");
+
+    await expect(page.locator('input[name="submitter_timezone"]')).toHaveValue(
+      "America/New_York",
+    );
+    await expect(
+      page.locator('input[name="submitter_utc_offset_minutes"]'),
+    ).toHaveValue("-240");
+
+    await runtime.assertHealthy();
+    await context.close();
+  });
+
   test("home page loads with public navigation and no starter content", async ({
     page,
   }) => {

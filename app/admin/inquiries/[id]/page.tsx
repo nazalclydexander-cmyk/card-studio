@@ -16,10 +16,12 @@ import {
 } from "@/components/ui/card";
 import {
   CUSTOMER_INQUIRY_STATUS_OPTIONS,
+  formatInquirySubmittedAtPht,
+  formatInquirySubmitterLocalTime,
   getInquiryContactSummary,
   getInquiryProduct,
+  getInquirySubmitterTimeZoneLabel,
   getStatusBadgeClasses,
-  inquiryListDateFormatter,
 } from "@/lib/customer-inquiries";
 import { requireAdmin } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -85,6 +87,8 @@ async function InquiryContent({ params, searchParams }: InquiryDetailPageProps) 
         message,
         status,
         created_at,
+        submitter_timezone,
+        submitter_utc_offset_minutes,
         product:products (
           id,
           name,
@@ -152,9 +156,21 @@ async function InquiryContent({ params, searchParams }: InquiryDetailPageProps) 
                 <p className="font-medium">{data.phone ?? "Not provided"}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-muted-foreground">Submitted</p>
+                <p className="text-muted-foreground">Submitted (PHT)</p>
                 <p className="font-medium">
-                  {inquiryListDateFormatter.format(new Date(data.created_at))}
+                  {formatInquirySubmittedAtPht(data.created_at)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Customer local time</p>
+                <p className="font-medium">
+                  {formatInquirySubmitterLocalTime(data)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Customer timezone</p>
+                <p className="font-medium">
+                  {getInquirySubmitterTimeZoneLabel(data)}
                 </p>
               </div>
               <div className="space-y-1">

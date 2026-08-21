@@ -13,10 +13,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  formatInquirySubmittedAtPht,
+  getInquirySubmitterTimeZoneLabel,
   getInquiryContactSummary,
   getInquiryProduct,
   getStatusBadgeClasses,
-  inquiryListDateFormatter,
   type AdminInquiryListItem,
 } from "@/lib/customer-inquiries";
 import { requireAdmin } from "@/lib/admin";
@@ -77,6 +78,8 @@ async function InquiriesContent() {
         message,
         status,
         created_at,
+        submitter_timezone,
+        submitter_utc_offset_minutes,
         product:products (
           id,
           name,
@@ -165,10 +168,13 @@ async function InquiriesContent() {
                   </dd>
                 </div>
                 <div className="space-y-1">
-                  <dt className="text-muted-foreground">Submitted</dt>
+                  <dt className="text-muted-foreground">Submitted (PHT)</dt>
                   <dd className="font-medium">
-                    {inquiryListDateFormatter.format(new Date(inquiry.created_at))}
+                    {formatInquirySubmittedAtPht(inquiry.created_at)}
                   </dd>
+                  <p className="text-xs text-muted-foreground">
+                    Customer timezone: {getInquirySubmitterTimeZoneLabel(inquiry)}
+                  </p>
                 </div>
               </dl>
 

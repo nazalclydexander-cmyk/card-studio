@@ -52,6 +52,8 @@ export async function submitCustomerInquiryAction(
     event_date: data.eventDate,
     quantity: data.quantity,
     message: data.message,
+    submitter_timezone: data.submitterTimezone,
+    submitter_utc_offset_minutes: data.submitterUtcOffsetMinutes,
   });
 
   if (error) {
