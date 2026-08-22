@@ -6,6 +6,10 @@ import { monitorPageRuntime } from "./helpers/runtime";
 import { getAdminCredentials } from "./helpers/safety";
 
 const WATERMARK_PREVIEW_PATH = "/api/admin/product-images/preview";
+const PREVIEW_REGENERATION_PREPARE_ROUTE =
+  /\/api\/admin\/product-previews\/regeneration$/;
+const PREVIEW_REGENERATION_ITEM_PATH =
+  /\/api\/admin\/product-previews\/regeneration\/[^/]+$/;
 const PRODUCT_PREVIEWS_PUBLIC_URL_PREFIX =
   "https://yjsljyuhluwelrcaqbwn.supabase.co/storage/v1/object/public/product-previews/";
 const PRODUCT_ORIGINALS_PATH_SEGMENT = "/product-originals/";
@@ -76,6 +80,8 @@ test.describe.serial("admin watermark settings", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: "Preview" }),
     ).toBeVisible();
+
+    await waitForInitialAppearancePreview(page);
 
     const manualHeaders = await waitForAppearancePreview(
       page,
@@ -189,19 +195,78 @@ test.describe.serial("admin watermark settings", () => {
     await runtime.assertHealthy();
   });
 
-  test("regeneration stays explicit and requires saved appearance settings", async ({
+  test("regeneration shows real progress and remains explicit", async ({
     page,
   }) => {
     const runtime = monitorPageRuntime(page);
+    const firstItemGate = createDeferred<void>();
+    const secondItemGate = createDeferred<void>();
+    let prepareRequests = 0;
+    const itemRequests: string[] = [];
+
+    await page.route(PREVIEW_REGENERATION_PREPARE_ROUTE, async (route) => {
+      prepareRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          total: 3,
+          items: [
+            {
+              imageId: "img-1",
+              productId: "product-1",
+              productName: "Elegant Floral Wedding Invitation",
+            },
+            {
+              imageId: "img-2",
+              productId: "product-2",
+              productName: "Celestial Debut Invitation",
+            },
+            {
+              imageId: "img-3",
+              productId: "product-3",
+              productName: "Modern Thank You Card",
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route(PREVIEW_REGENERATION_ITEM_PATH, async (route) => {
+      const requestUrl = route.request().url();
+      const imageId = requestUrl.split("/").pop() ?? "unknown";
+      itemRequests.push(imageId);
+
+      if (imageId === "img-1") {
+        await firstItemGate.promise;
+      } else if (imageId === "img-2") {
+        await secondItemGate.promise;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          imageId,
+          productName:
+            imageId === "img-1"
+              ? "Elegant Floral Wedding Invitation"
+              : imageId === "img-2"
+                ? "Celestial Debut Invitation"
+                : "Modern Thank You Card",
+        }),
+      });
+    });
 
     await page.goto("/admin/appearance");
     await expect(
       page.getByRole("heading", { level: 1, name: "Appearance" }),
     ).toBeVisible();
 
-    const regenerateButton = page.getByRole("button", {
-      name: "Apply watermark to existing previews",
-    });
+    const regenerateButton = getRegenerateExistingPreviewsButton(page);
+    const regenerateButtonDom = getRegenerateExistingPreviewsButtonDom(page);
 
     await expect(regenerateButton).toBeVisible();
     await expect(regenerateButton).toBeEnabled();
@@ -216,13 +281,71 @@ test.describe.serial("admin watermark settings", () => {
     await expect(
       page.getByRole("button", { name: "Regenerate previews" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Cancel" }).click();
+    await page
+      .getByRole("button", { name: "Regenerate previews" })
+      .click();
+
+    const progressDialog = getRegenerationProgressDialog(page);
+
+    await expect(progressDialog).toBeVisible();
     await expect(
-      page.getByRole("alertdialog", {
-        name: "Apply watermark to existing previews?",
+      progressDialog.getByText(
+        "Please keep this page open until regeneration is complete.",
+      ),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByRole("progressbar", {
+        name: "Preview regeneration progress",
       }),
+    ).toHaveAttribute("aria-valuenow", "0");
+    await expect(
+      progressDialog.getByText("0 of 3 previews completed", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByText("Currently processing", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByText("Elegant Floral Wedding Invitation", { exact: true }),
+    ).toBeVisible();
+    await expect(regenerateButtonDom).toBeDisabled();
+
+    firstItemGate.resolve();
+
+    await expect(
+      progressDialog.getByRole("progressbar", {
+        name: "Preview regeneration progress",
+      }),
+    ).toHaveAttribute("aria-valuenow", "1");
+    await expect(
+      progressDialog.getByText("1 of 3 previews completed", { exact: true }),
+    ).toBeVisible();
+    await expect(progressDialog.getByText("33%", { exact: true })).toBeVisible();
+    await expect(
+      progressDialog.getByText("Celestial Debut Invitation", { exact: true }),
+    ).toBeVisible();
+
+    secondItemGate.resolve();
+
+    await expect(
+      progressDialog.getByText("Watermark applied successfully", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByText("3 of 3 previews regenerated.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByRole("progressbar", {
+        name: "Preview regeneration progress",
+      }),
+    ).toHaveAttribute("aria-valuenow", "3");
+    await expect(progressDialog.getByText("100%", { exact: true })).toBeVisible();
+    await expect(progressDialog.getByRole("button", { name: "Done" })).toBeVisible();
+    expect(prepareRequests).toBe(1);
+    expect(itemRequests).toEqual(["img-1", "img-2", "img-3"]);
+
+    await progressDialog.getByRole("button", { name: "Done" }).click();
+    await expect(
+      page.getByRole("alertdialog", { name: "Applying watermark" }),
     ).toHaveCount(0);
-    await expect(page).toHaveURL(/\/admin\/appearance$/);
 
     await page.getByLabel("Watermark text").fill("UNSAVED REGEN CHECK");
 
@@ -230,6 +353,154 @@ test.describe.serial("admin watermark settings", () => {
     await expect(
       page.getByText("Save appearance first.", { exact: true }),
     ).toBeVisible();
+
+    await runtime.assertHealthy();
+  });
+
+  test("regeneration reports failures and can retry failed previews", async ({
+    page,
+  }) => {
+    const runtime = monitorPageRuntime(page);
+    const retryGate = createDeferred<void>();
+    let prepareRequests = 0;
+    let img2Attempts = 0;
+    const itemRequests: string[] = [];
+    const retryItemRequests: string[] = [];
+
+    await page.route(PREVIEW_REGENERATION_PREPARE_ROUTE, async (route) => {
+      prepareRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          total: 2,
+          items: [
+            {
+              imageId: "img-1",
+              productId: "product-1",
+              productName: "Elegant Floral Wedding Invitation",
+            },
+            {
+              imageId: "img-2",
+              productId: "product-2",
+              productName: "Celestial Debut Invitation",
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route(PREVIEW_REGENERATION_ITEM_PATH, async (route) => {
+      const imageId = route.request().url().split("/").pop() ?? "unknown";
+      itemRequests.push(imageId);
+
+      if (imageId === "img-2") {
+        img2Attempts += 1;
+
+        if (img2Attempts > 1) {
+          retryItemRequests.push(imageId);
+          await retryGate.promise;
+        }
+
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(
+            img2Attempts === 1
+              ? {
+                  success: false,
+                  imageId,
+                  productName: "Celestial Debut Invitation",
+                  message: "This preview could not be regenerated right now.",
+                }
+              : {
+                  success: true,
+                  imageId,
+                  productName: "Celestial Debut Invitation",
+                },
+          ),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          imageId,
+          productName: "Elegant Floral Wedding Invitation",
+        }),
+      });
+    });
+
+    await page.goto("/admin/appearance");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Appearance" }),
+    ).toBeVisible();
+
+    await page
+      .getByRole("button", { name: "Apply watermark to existing previews" })
+      .click();
+    await page.getByRole("button", { name: "Regenerate previews" }).click();
+
+    const progressDialog = getRegenerationProgressDialog(page);
+
+    await expect(
+      progressDialog.getByText("Regeneration completed with issues", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByText("1 of 2 previews regenerated.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByText("1 preview could not be regenerated.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByText(
+        "Celestial Debut Invitation: This preview could not be regenerated right now.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByRole("button", { name: "Retry failed previews" }),
+    ).toBeVisible();
+
+    const retryRunningState = expect(async () => {
+      await expect(progressDialog).toBeVisible();
+      await expect(
+        progressDialog.getByRole("progressbar", {
+          name: "Preview regeneration progress",
+        }),
+      ).toHaveAttribute("aria-valuenow", "0");
+      await expect(
+        progressDialog.getByText("0 of 1 previews completed", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        progressDialog.getByText("Currently processing", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        progressDialog.getByText("Celestial Debut Invitation", { exact: true }),
+      ).toBeVisible();
+    });
+
+    await Promise.all([
+      retryRunningState.toPass(),
+      progressDialog.getByRole("button", { name: "Retry failed previews" }).click(),
+    ]);
+
+    retryGate.resolve();
+
+    await expect(
+      progressDialog.getByText("Watermark applied successfully", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      progressDialog.getByText("1 of 1 previews regenerated.", { exact: true }),
+    ).toBeVisible();
+    expect(prepareRequests).toBe(1);
+    expect(img2Attempts).toBe(2);
+    expect(itemRequests).toEqual(["img-1", "img-2", "img-2"]);
+    expect(retryItemRequests).toEqual(["img-2"]);
 
     await runtime.assertHealthy();
   });
@@ -261,6 +532,7 @@ test.describe.serial("admin watermark settings", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: "Appearance" }),
       ).toBeVisible();
+      await waitForInitialAppearancePreview(page);
     });
 
     const { originalValues, originalPreviewSrc } = await recordStep(
@@ -486,6 +758,20 @@ function getAppearancePreviewImage(page: Page) {
   return page.getByAltText("Temporary watermark preview");
 }
 
+function getRegenerateExistingPreviewsButton(page: Page) {
+  return page.getByRole("button", {
+    name: "Apply watermark to existing previews",
+  });
+}
+
+function getRegenerateExistingPreviewsButtonDom(page: Page) {
+  return page.getByTestId("regenerate-existing-previews");
+}
+
+function getRegenerationProgressDialog(page: Page) {
+  return page.getByRole("alertdialog", { name: "Applying watermark" });
+}
+
 function getWatermarkSection(page: Page) {
   return page
     .getByRole("heading", { level: 2, name: "Watermark" })
@@ -496,37 +782,103 @@ function getWatermarkControl(page: Page, label: string) {
   return getWatermarkSection(page).getByLabel(label, { exact: true });
 }
 
+async function waitForInitialAppearancePreview(page: Page) {
+  const previewImage = getAppearancePreviewImage(page);
+  const previewStatusText = page.getByText(
+    /Generating preview\.\.\.|The watermark preview could not be generated right now\.|Preview will appear here\./,
+  );
+
+  await expect
+    .poll(
+      async () => {
+        if (await previewImage.count()) {
+          return "image";
+        }
+
+        if (await page.getByText("Generating preview...", { exact: true }).count()) {
+          return "loading";
+        }
+
+        if (
+          await page
+            .getByText(
+              "The watermark preview could not be generated right now.",
+              { exact: true },
+            )
+            .count()
+        ) {
+          return "error";
+        }
+
+        if (await page.getByText("Preview will appear here.", { exact: true }).count()) {
+          return "empty";
+        }
+
+        return "unknown";
+      },
+      {
+        timeout: 15_000,
+        message: "Waiting for the initial watermark preview to settle.",
+      },
+    )
+    .not.toBe("loading");
+
+  if (
+    await page
+      .getByText("The watermark preview could not be generated right now.", {
+        exact: true,
+      })
+      .count()
+  ) {
+    throw new Error(
+      "The initial watermark preview entered an explicit error state instead of rendering an image.",
+    );
+  }
+
+  await waitForLoadedAppearancePreviewImage(page, 15_000);
+  await expect(previewStatusText).toHaveCount(0);
+}
+
+async function waitForLoadedAppearancePreviewImage(page: Page, timeout = 10_000) {
+  const previewImage = getAppearancePreviewImage(page);
+
+  await expect(previewImage).toBeVisible({ timeout });
+  await expect
+    .poll(
+      async () => {
+        return previewImage.evaluate((image) => ({
+          src: image.getAttribute("src"),
+          complete: (image as HTMLImageElement).complete,
+          naturalWidth: (image as HTMLImageElement).naturalWidth,
+          naturalHeight: (image as HTMLImageElement).naturalHeight,
+        }));
+      },
+      { timeout },
+    )
+    .toMatchObject({
+      src: expect.any(String),
+      complete: true,
+      naturalWidth: expect.any(Number),
+      naturalHeight: expect.any(Number),
+    });
+
+  const loadedImage = await previewImage.evaluate((image) => ({
+    naturalWidth: (image as HTMLImageElement).naturalWidth,
+    naturalHeight: (image as HTMLImageElement).naturalHeight,
+  }));
+
+  expect(loadedImage.naturalWidth).toBeGreaterThan(0);
+  expect(loadedImage.naturalHeight).toBeGreaterThan(0);
+}
+
 async function waitForAppearancePreview(
   page: Page,
   action: () => Promise<void>,
   requestLog?: WatermarkDebugHeaders[],
   matchesHeaders?: (headers: WatermarkDebugHeaders) => boolean,
 ) {
-  const previewImage = getAppearancePreviewImage(page);
-  await expect(previewImage).toBeVisible();
-  await expect.poll(async () => previewImage.getAttribute("src")).not.toBeNull();
-
   return waitForWatermarkPreviewResponse(page, action, async () => {
-    await expect(previewImage).toBeVisible();
-    await expect
-      .poll(async () => {
-        return previewImage.evaluate((image) => ({
-          src: image.getAttribute("src"),
-          naturalWidth: (image as HTMLImageElement).naturalWidth,
-          naturalHeight: (image as HTMLImageElement).naturalHeight,
-        }));
-      })
-      .toMatchObject({
-        src: expect.any(String),
-        naturalWidth: expect.any(Number),
-        naturalHeight: expect.any(Number),
-      });
-    const loadedImage = await previewImage.evaluate((image) => ({
-      naturalWidth: (image as HTMLImageElement).naturalWidth,
-      naturalHeight: (image as HTMLImageElement).naturalHeight,
-    }));
-    expect(loadedImage.naturalWidth).toBeGreaterThan(0);
-    expect(loadedImage.naturalHeight).toBeGreaterThan(0);
+    await waitForLoadedAppearancePreviewImage(page);
   }, requestLog, matchesHeaders);
 }
 
@@ -775,6 +1127,17 @@ async function setCheckbox(page: Page, name: string, checked: boolean) {
 
 async function isChecked(locator: Locator) {
   return (await locator.getAttribute("data-state")) === "checked";
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+
+  return { promise, resolve, reject };
 }
 
 async function saveAppearance(page: Page) {

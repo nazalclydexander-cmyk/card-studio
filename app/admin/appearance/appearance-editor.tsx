@@ -4,11 +4,11 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
-  regenerateExistingProtectedPreviewsAction,
   updateAppearanceSettingsAction,
 } from "@/app/admin/appearance/actions";
 import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
 import { AdminNotice } from "@/components/admin/admin-notice";
+import { AdminProgressDialog } from "@/components/admin/admin-progress-dialog";
 import { ProductCard } from "@/components/public/product-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,6 +25,13 @@ import {
   type AppearanceFieldErrors,
   type AppearanceFormValues,
 } from "@/lib/appearance-settings";
+import {
+  calculatePreviewRegenerationPercentage,
+  type PreviewRegenerationFailure,
+  type PreviewRegenerationItemResult,
+  type PreviewRegenerationPrepareResult,
+  type PreviewRegenerationTarget,
+} from "@/lib/product-preview-regeneration-shared";
 import { createClient } from "@/lib/supabase/client";
 import {
   DEFAULT_BODY_FONT,
@@ -58,6 +65,28 @@ type WatermarkPreviewState = {
   url: string | null;
   message: string | null;
 };
+
+type PreviewRegenerationStatus =
+  | "idle"
+  | "preparing"
+  | "running"
+  | "completed"
+  | "completed_with_errors"
+  | "failed";
+
+type PreviewRegenerationState = {
+  status: PreviewRegenerationStatus;
+  total: number;
+  completed: number;
+  failed: number;
+  percentage: number;
+  currentName: string | null;
+  message: string | null;
+  failures: PreviewRegenerationFailure[];
+  retrying: boolean;
+};
+
+const PREVIEW_REGENERATION_PREPARE_PATH = "/api/admin/product-previews/regeneration";
 
 const previewProduct: PublicProduct = {
   id: "preview-product",
@@ -202,6 +231,104 @@ function buildWatermarkPreviewPayload(values: AppearanceFormValues) {
   };
 }
 
+function createIdlePreviewRegenerationState(): PreviewRegenerationState {
+  return {
+    status: "idle",
+    total: 0,
+    completed: 0,
+    failed: 0,
+    percentage: 0,
+    currentName: null,
+    message: null,
+    failures: [],
+    retrying: false,
+  };
+}
+
+async function readJsonResponse<T>(response: Response): Promise<T | null> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function preparePreviewRegenerationRequest() {
+  const response = await fetch(PREVIEW_REGENERATION_PREPARE_PATH, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  const result = await readJsonResponse<PreviewRegenerationPrepareResult | { message?: string }>(
+    response,
+  );
+
+  if (!response.ok) {
+    return {
+      success: false as const,
+      message:
+        result && "message" in result && typeof result.message === "string"
+          ? result.message
+          : "Unable to regenerate previews. Please try again.",
+    };
+  }
+
+  if (!result || !("success" in result) || result.success !== true) {
+    return {
+      success: false as const,
+      message: "Unable to regenerate previews. Please try again.",
+    };
+  }
+
+  return result;
+}
+
+async function regeneratePreviewByIdRequest(imageId: string) {
+  const response = await fetch(
+    `${PREVIEW_REGENERATION_PREPARE_PATH}/${encodeURIComponent(imageId)}`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  const result = await readJsonResponse<
+    PreviewRegenerationItemResult | { message?: string; productName?: string; imageId?: string }
+  >(response);
+
+  if (!response.ok) {
+    return {
+      success: false as const,
+      imageId,
+      productName:
+        result && "productName" in result && typeof result.productName === "string"
+          ? result.productName
+          : "Product",
+      message:
+        result && "message" in result && typeof result.message === "string"
+          ? result.message
+          : "This preview could not be regenerated right now.",
+    };
+  }
+
+  if (!result || !("success" in result)) {
+    return {
+      success: false as const,
+      imageId,
+      productName: "Product",
+      message: "This preview could not be regenerated right now.",
+    };
+  }
+
+  return result;
+}
+
 export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
   const [values, setValues] = useState<AppearanceFormValues>(initialValues);
   const [savedValues, setSavedValues] = useState<AppearanceFormValues>(initialValues);
@@ -209,10 +336,12 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [isRegenerating, startRegeneration] = useTransition();
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
   const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
   const [isSubmittingSave, setIsSubmittingSave] = useState(false);
+  const [previewRegeneration, setPreviewRegeneration] = useState<PreviewRegenerationState>(
+    () => createIdlePreviewRegenerationState(),
+  );
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [removeLogoOnSave, setRemoveLogoOnSave] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -222,6 +351,9 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
     message: null,
   });
   const watermarkPreviewRequestIdRef = useRef(0);
+  const isRegenerationBusy =
+    previewRegeneration.status === "preparing" ||
+    previewRegeneration.status === "running";
 
   const selectedLogoPreviewUrl = useMemo(() => {
     if (!selectedLogoFile) {
@@ -555,17 +687,63 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
     setRemoveLogoOnSave(false);
   }
 
-  function runRegenerateExistingPreviews() {
-    if (hasUnsavedChanges || isPending || isRegenerating) {
+  async function runRegenerateExistingPreviews(
+    itemsToProcess?: PreviewRegenerationTarget[],
+  ) {
+    if (hasUnsavedChanges || isPending || isRegenerationBusy) {
       return;
     }
 
     setFeedback(null);
 
-    startRegeneration(async () => {
-      const result = await regenerateExistingProtectedPreviewsAction();
+    const queuedItems = itemsToProcess ?? [];
+    const retrying = queuedItems.length > 0;
 
-      if (result.total === 0) {
+    try {
+      setPreviewRegeneration({
+        status: "preparing",
+        total: queuedItems.length,
+        completed: 0,
+        failed: 0,
+        percentage: 0,
+        currentName: null,
+        message: retrying
+          ? "Preparing the failed previews for another attempt."
+          : "Preparing the existing protected previews for regeneration.",
+        failures: [],
+        retrying,
+      });
+
+      const prepareResult =
+        queuedItems.length > 0
+          ? {
+              success: true as const,
+              total: queuedItems.length,
+              items: queuedItems,
+            }
+          : await preparePreviewRegenerationRequest();
+
+      if (!prepareResult.success) {
+        setPreviewRegeneration({
+          status: "failed",
+          total: 0,
+          completed: 0,
+          failed: 0,
+          percentage: 0,
+          currentName: null,
+          message: prepareResult.message,
+          failures: [],
+          retrying: false,
+        });
+        setFeedback({
+          tone: "error",
+          message: "Unable to regenerate previews. Please try again.",
+        });
+        return;
+      }
+
+      if (prepareResult.total === 0) {
+        setPreviewRegeneration(createIdlePreviewRegenerationState());
         setFeedback({
           tone: "info",
           message: "No existing protected previews were found to regenerate.",
@@ -573,34 +751,133 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
         return;
       }
 
-      if (result.failed === 0) {
-        setFeedback({
-          tone: "success",
-          message: `${result.updated} preview${result.updated === 1 ? "" : "s"} regenerated successfully.`,
-        });
-        return;
+      setPreviewRegeneration((current) => ({
+        ...current,
+        status: "running",
+        total: prepareResult.total,
+        currentName: prepareResult.items[0]?.productName ?? null,
+        message: null,
+      }));
+
+      const failures: PreviewRegenerationFailure[] = [];
+      let completed = 0;
+      let failed = 0;
+
+      for (const item of prepareResult.items) {
+        setPreviewRegeneration((current) => ({
+          ...current,
+          status: "running",
+          currentName: item.productName,
+        }));
+
+        let result: PreviewRegenerationItemResult;
+
+        try {
+          result = await regeneratePreviewByIdRequest(item.imageId);
+        } catch {
+          result = {
+            success: false,
+            imageId: item.imageId,
+            productName: item.productName,
+            message: "This preview could not be regenerated right now.",
+          };
+        }
+
+        completed += 1;
+
+        if (!result.success) {
+          failed += 1;
+          failures.push({
+            productName: result.productName,
+            imageId: result.imageId,
+            message: result.message,
+          });
+        }
+
+        setPreviewRegeneration((current) => ({
+          ...current,
+          status: "running",
+          completed,
+          failed,
+          percentage: calculatePreviewRegenerationPercentage(
+            completed,
+            current.total,
+          ),
+          currentName:
+            completed < current.total
+              ? prepareResult.items[completed]?.productName ?? null
+              : item.productName,
+          failures: [...failures],
+        }));
       }
 
-      const details = result.failures.map(
+      const updated = prepareResult.total - failed;
+      const details = failures.map(
         (failure) =>
           `${failure.productName} (${failure.imageId}): ${failure.message}`,
       );
 
-      if (result.updated > 0) {
+      if (failed === 0) {
+        setPreviewRegeneration({
+          status: "completed",
+          total: prepareResult.total,
+          completed: prepareResult.total,
+          failed: 0,
+          percentage: 100,
+          currentName: null,
+          message: "Watermark applied successfully",
+          failures: [],
+          retrying: false,
+        });
         setFeedback({
-          tone: "warning",
-          message: `${result.updated} of ${result.total} previews regenerated. ${result.failed} failed.`,
-          details,
+          tone: "success",
+          message: `${updated} preview${updated === 1 ? "" : "s"} regenerated successfully.`,
         });
         return;
       }
 
+      const finalStatus = updated > 0 ? "completed_with_errors" : "failed";
+
+      setPreviewRegeneration({
+        status: finalStatus,
+        total: prepareResult.total,
+        completed: prepareResult.total,
+        failed,
+        percentage: 100,
+        currentName: null,
+        message:
+          updated > 0
+            ? "Regeneration completed with issues"
+            : "Unable to regenerate previews.",
+        failures,
+        retrying: false,
+      });
+
       setFeedback({
-        tone: "error",
-        message: `No previews were regenerated. ${result.failed} failed.`,
+        tone: updated > 0 ? "warning" : "error",
+        message:
+          updated > 0
+            ? `${updated} of ${prepareResult.total} previews regenerated. ${failed} failed.`
+            : `No previews were regenerated. ${failed} failed.`,
         details,
       });
-    });
+    } catch {
+      setPreviewRegeneration({
+        status: "failed",
+        total: 0,
+        completed: 0,
+        failed: 0,
+        percentage: 0,
+        currentName: null,
+        message: "Unable to regenerate previews. Please try again.",
+        failures: [],
+        retrying: false,
+      });
+      setFeedback({
+        tone: "error",
+        message: "Unable to regenerate previews. Please try again.",
+      });
+    }
   }
 
   function handleSaveClick() {
@@ -612,11 +889,39 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
   }
 
   function handleRegenerateExistingPreviews() {
-    if (hasUnsavedChanges || isPending || isRegenerating) {
+    if (hasUnsavedChanges || isPending || isRegenerationBusy) {
       return;
     }
 
     setRegenerateConfirmOpen(true);
+  }
+
+  function handleCloseRegenerationProgress() {
+    if (isRegenerationBusy) {
+      return;
+    }
+
+    setPreviewRegeneration(createIdlePreviewRegenerationState());
+  }
+
+  function handleRetryFailedPreviews() {
+    if (
+      isRegenerationBusy ||
+      previewRegeneration.status !== "completed_with_errors" ||
+      previewRegeneration.failures.length === 0
+    ) {
+      return;
+    }
+
+    const failedItems: PreviewRegenerationTarget[] = previewRegeneration.failures.map(
+      (failure) => ({
+        imageId: failure.imageId,
+        productId: "",
+        productName: failure.productName,
+      }),
+    );
+
+    void runRegenerateExistingPreviews(failedItems);
   }
 
   return (
@@ -1378,13 +1683,14 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
               </div>
 
               <div className="flex flex-col items-start gap-2">
-              <Button
+                <Button
                   type="button"
                   variant="outline"
+                  data-testid="regenerate-existing-previews"
                   onClick={handleRegenerateExistingPreviews}
-                  disabled={hasUnsavedChanges || isPending || isRegenerating}
+                  disabled={hasUnsavedChanges || isPending || isRegenerationBusy}
                 >
-                  {isRegenerating
+                  {isRegenerationBusy
                     ? "Regenerating previews..."
                     : "Apply watermark to existing previews"}
                 </Button>
@@ -1644,16 +1950,83 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
         onOpenChange={setRegenerateConfirmOpen}
         title="Apply watermark to existing previews?"
         description="This will regenerate all existing public product previews from their private originals using the currently saved watermark settings. Clean originals will remain unchanged."
-        confirmLabel={isRegenerating ? "Regenerating..." : "Regenerate previews"}
-        isLoading={isRegenerating}
-        disableClose={isRegenerating}
+        confirmLabel={isRegenerationBusy ? "Regenerating..." : "Regenerate previews"}
+        isLoading={isRegenerationBusy}
+        disableClose={isRegenerationBusy}
         onConfirm={async () => {
           setRegenerateConfirmOpen(false);
-          runRegenerateExistingPreviews();
+          await runRegenerateExistingPreviews();
         }}
       >
-        <p>Existing preview images will be replaced with newly generated protected versions.</p>
+        <p>
+          Existing public previews will be regenerated. Private originals stay
+          unchanged, and the currently saved watermark settings will be used.
+        </p>
       </AdminConfirmDialog>
+
+      <AdminProgressDialog
+        open={previewRegeneration.status !== "idle"}
+        onOpenChange={handleCloseRegenerationProgress}
+        title="Applying watermark"
+        description="Regenerating protected product previews from their saved private originals."
+        status={
+          previewRegeneration.status === "idle"
+            ? "preparing"
+            : previewRegeneration.status
+        }
+        progressLabel={`${previewRegeneration.completed} of ${previewRegeneration.total} previews completed`}
+        progressValue={previewRegeneration.completed}
+        progressMax={Math.max(previewRegeneration.total, 1)}
+        percentage={previewRegeneration.percentage}
+        summary={
+          previewRegeneration.message ??
+          "Regenerating protected product previews..."
+        }
+        helperText={
+          isRegenerationBusy
+            ? "Please keep this page open until regeneration is complete."
+            : previewRegeneration.status === "completed"
+              ? `${previewRegeneration.total} of ${previewRegeneration.total} previews regenerated.`
+              : previewRegeneration.status === "completed_with_errors"
+                ? `${previewRegeneration.total - previewRegeneration.failed} of ${previewRegeneration.total} previews regenerated.`
+                : previewRegeneration.status === "failed"
+                  ? "Please try again."
+                  : undefined
+        }
+        currentItemLabel={
+          previewRegeneration.status === "running"
+            ? previewRegeneration.currentName ??
+              `Processing preview ${Math.min(
+                previewRegeneration.completed + 1,
+                previewRegeneration.total,
+              )} of ${previewRegeneration.total}`
+            : null
+        }
+        failureSummary={
+          previewRegeneration.failed > 0
+            ? `${previewRegeneration.failed} preview${previewRegeneration.failed === 1 ? "" : "s"} could not be regenerated.`
+            : null
+        }
+        failureDetails={
+          previewRegeneration.failures.length ? (
+            <ul className="list-disc space-y-1 pl-5">
+              {previewRegeneration.failures.map((failure) => (
+                <li key={`${failure.imageId}-${failure.message}`}>
+                  {failure.productName}: {failure.message}
+                </li>
+              ))}
+            </ul>
+          ) : undefined
+        }
+        disableClose={isRegenerationBusy}
+        onDone={handleCloseRegenerationProgress}
+        onRetry={
+          previewRegeneration.status === "completed_with_errors"
+            ? handleRetryFailedPreviews
+            : undefined
+        }
+        isRetrying={previewRegeneration.retrying}
+      />
     </div>
   );
 }
