@@ -91,6 +91,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: remotePattern ? [remotePattern] : [],
   },
+  outputFileTracingIncludes: {
+    "/*": ["assets/fonts/**/*"],
+  },
   async headers() {
     return [
       {

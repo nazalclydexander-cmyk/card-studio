@@ -10,12 +10,12 @@ import {
 import { isValidSiteLogoPath } from "@/lib/site-assets";
 import {
   DEFAULT_WATERMARK_SETTINGS,
-  WATERMARK_FONT_REGISTRY,
   clampWatermarkFontScale,
   clampWatermarkOpacity,
   clampWatermarkRotation,
   clampWatermarkSpacing,
   getApprovedWatermarkFontKey,
+  getWatermarkFontOptionEntries,
   isWatermarkMode,
   isValidWatermarkHexColor,
   normalizeWatermarkHexColor,
@@ -141,13 +141,7 @@ export function getFontOptions() {
 }
 
 export function getWatermarkFontOptions() {
-  return Object.keys(WATERMARK_FONT_REGISTRY).map((fontKey) => ({
-    value: fontKey as WatermarkFontKey,
-    label: fontKey
-      .split("_")
-      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-      .join(" "),
-  }));
+  return getWatermarkFontOptionEntries();
 }
 
 export function normalizeHexColor(value: string) {

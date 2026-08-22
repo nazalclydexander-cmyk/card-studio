@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     watermarkSettings = validation.data;
   }
 
-  let sourceBuffer = createAppearanceWatermarkSampleBuffer();
+  let sourceBuffer = await createAppearanceWatermarkSampleBuffer();
 
   if (file instanceof File && file.size > 0) {
     if (!isAllowedMimeType(file.type)) {

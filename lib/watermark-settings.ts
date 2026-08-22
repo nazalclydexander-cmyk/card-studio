@@ -1,12 +1,25 @@
 export const WATERMARK_FONT_REGISTRY = {
-  arial: 'Arial, Helvetica, sans-serif',
-  helvetica: 'Helvetica, Arial, sans-serif',
-  georgia: 'Georgia, "Times New Roman", Times, serif',
-  times_new_roman: '"Times New Roman", Times, serif',
-  trebuchet_ms: '"Trebuchet MS", Helvetica, sans-serif',
+  inter: {
+    label: "Inter Sans",
+    browserStack: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+  libre_baskerville: {
+    label: "Libre Baskerville Serif",
+    browserStack: '"Libre Baskerville", Georgia, "Times New Roman", serif',
+  },
+} as const;
+
+export const LEGACY_WATERMARK_FONT_ALIASES = {
+  arial: "inter",
+  helvetica: "inter",
+  trebuchet_ms: "inter",
+  georgia: "libre_baskerville",
+  times_new_roman: "libre_baskerville",
 } as const;
 
 export type WatermarkFontKey = keyof typeof WATERMARK_FONT_REGISTRY;
+export type LegacyWatermarkFontKey = keyof typeof LEGACY_WATERMARK_FONT_ALIASES;
+export type WatermarkFontInputKey = WatermarkFontKey | LegacyWatermarkFontKey;
 export type WatermarkMode = "manual" | "adaptive";
 
 export type WatermarkSettings = {
@@ -32,7 +45,7 @@ export type WatermarkSettingsInput = Partial<{
 export const DEFAULT_WATERMARK_SETTINGS: WatermarkSettings = {
   watermark_enabled: true,
   watermark_text: "PREVIEW",
-  watermark_font: "arial",
+  watermark_font: "inter",
   watermark_mode: "adaptive",
   watermark_color: "#60544C",
   watermark_light_color: "#F8F4EE",
@@ -65,13 +78,19 @@ export function isValidWatermarkHexColor(value: string) {
   return HEX_COLOR_PATTERN.test(value);
 }
 
-export function getApprovedWatermarkFontKey(value: string | null | undefined) {
+export function getApprovedWatermarkFontKey(
+  value: string | null | undefined,
+): WatermarkFontKey | null {
   if (!value) {
     return null;
   }
 
   if (value in WATERMARK_FONT_REGISTRY) {
     return value as WatermarkFontKey;
+  }
+
+  if (value in LEGACY_WATERMARK_FONT_ALIASES) {
+    return LEGACY_WATERMARK_FONT_ALIASES[value as LegacyWatermarkFontKey];
   }
 
   return null;
@@ -82,7 +101,22 @@ export function getWatermarkFontStack(value: string | null | undefined) {
     getApprovedWatermarkFontKey(value) ??
     DEFAULT_WATERMARK_SETTINGS.watermark_font;
 
-  return WATERMARK_FONT_REGISTRY[fontKey];
+  return WATERMARK_FONT_REGISTRY[fontKey].browserStack;
+}
+
+export function getWatermarkFontLabel(value: string | null | undefined) {
+  const fontKey =
+    getApprovedWatermarkFontKey(value) ??
+    DEFAULT_WATERMARK_SETTINGS.watermark_font;
+
+  return WATERMARK_FONT_REGISTRY[fontKey].label;
+}
+
+export function getWatermarkFontOptionEntries() {
+  return Object.entries(WATERMARK_FONT_REGISTRY).map(([value, font]) => ({
+    value: value as WatermarkFontKey,
+    label: font.label,
+  }));
 }
 
 export function normalizeWatermarkText(value: string) {
@@ -98,19 +132,26 @@ export function clampWatermarkOpacity(value: number) {
 }
 
 export function clampWatermarkRotation(value: number) {
-  return Math.min(WATERMARK_ROTATION_MAX, Math.max(WATERMARK_ROTATION_MIN, Math.round(value)));
+  return Math.min(
+    WATERMARK_ROTATION_MAX,
+    Math.max(WATERMARK_ROTATION_MIN, Math.round(value)),
+  );
 }
 
 export function clampWatermarkFontScale(value: number) {
   return Number(
-    Math.min(WATERMARK_FONT_SCALE_MAX, Math.max(WATERMARK_FONT_SCALE_MIN, value)).toFixed(
-      2,
-    ),
+    Math.min(
+      WATERMARK_FONT_SCALE_MAX,
+      Math.max(WATERMARK_FONT_SCALE_MIN, value),
+    ).toFixed(2),
   );
 }
 
 export function clampWatermarkSpacing(value: number) {
-  return Math.min(WATERMARK_SPACING_MAX, Math.max(WATERMARK_SPACING_MIN, Math.round(value)));
+  return Math.min(
+    WATERMARK_SPACING_MAX,
+    Math.max(WATERMARK_SPACING_MIN, Math.round(value)),
+  );
 }
 
 export function isWatermarkMode(value: string | null | undefined): value is WatermarkMode {
@@ -119,14 +160,16 @@ export function isWatermarkMode(value: string | null | undefined): value is Wate
 
 export function validateWatermarkSettings(
   input: WatermarkSettings,
-): {
-  success: true;
-  data: WatermarkSettings;
-} | {
-  success: false;
-  fieldErrors: Partial<Record<keyof WatermarkSettings, string>>;
-  values: WatermarkSettings;
-} {
+):
+  | {
+      success: true;
+      data: WatermarkSettings;
+    }
+  | {
+      success: false;
+      fieldErrors: Partial<Record<keyof WatermarkSettings, string>>;
+      values: WatermarkSettings;
+    } {
   const values: WatermarkSettings = {
     watermark_enabled: input.watermark_enabled,
     watermark_text: normalizeWatermarkText(input.watermark_text),
@@ -169,24 +212,41 @@ export function validateWatermarkSettings(
     fieldErrors.watermark_dark_color = "Use a valid 6-digit hex color.";
   }
 
-  if (values.watermark_opacity < WATERMARK_OPACITY_MIN || values.watermark_opacity > WATERMARK_OPACITY_MAX) {
+  if (
+    values.watermark_opacity < WATERMARK_OPACITY_MIN ||
+    values.watermark_opacity > WATERMARK_OPACITY_MAX
+  ) {
     fieldErrors.watermark_opacity = "Opacity must stay between 5% and 50%.";
   }
 
-  if (values.watermark_rotation < WATERMARK_ROTATION_MIN || values.watermark_rotation > WATERMARK_ROTATION_MAX) {
+  if (
+    values.watermark_rotation < WATERMARK_ROTATION_MIN ||
+    values.watermark_rotation > WATERMARK_ROTATION_MAX
+  ) {
     fieldErrors.watermark_rotation = "Rotation must stay between -60° and 60°.";
   }
 
-  if (values.watermark_font_scale < WATERMARK_FONT_SCALE_MIN || values.watermark_font_scale > WATERMARK_FONT_SCALE_MAX) {
+  if (
+    values.watermark_font_scale < WATERMARK_FONT_SCALE_MIN ||
+    values.watermark_font_scale > WATERMARK_FONT_SCALE_MAX
+  ) {
     fieldErrors.watermark_font_scale = "Size must stay within the supported range.";
   }
 
-  if (values.watermark_spacing_x < WATERMARK_SPACING_MIN || values.watermark_spacing_x > WATERMARK_SPACING_MAX) {
-    fieldErrors.watermark_spacing_x = "Horizontal spacing must stay within the supported range.";
+  if (
+    values.watermark_spacing_x < WATERMARK_SPACING_MIN ||
+    values.watermark_spacing_x > WATERMARK_SPACING_MAX
+  ) {
+    fieldErrors.watermark_spacing_x =
+      "Horizontal spacing must stay within the supported range.";
   }
 
-  if (values.watermark_spacing_y < WATERMARK_SPACING_MIN || values.watermark_spacing_y > WATERMARK_SPACING_MAX) {
-    fieldErrors.watermark_spacing_y = "Vertical spacing must stay within the supported range.";
+  if (
+    values.watermark_spacing_y < WATERMARK_SPACING_MIN ||
+    values.watermark_spacing_y > WATERMARK_SPACING_MAX
+  ) {
+    fieldErrors.watermark_spacing_y =
+      "Vertical spacing must stay within the supported range.";
   }
 
   if (Object.keys(fieldErrors).length > 0) {
@@ -302,7 +362,7 @@ export function coerceWatermarkSettingsInput(
 
 export function pickWatermarkSettings(
   settings: Pick<
-    WatermarkSettings,
+    WatermarkSettings | Record<string, unknown>,
     | "watermark_enabled"
     | "watermark_text"
     | "watermark_font"
@@ -318,19 +378,60 @@ export function pickWatermarkSettings(
     | "watermark_repeat"
   >,
 ): WatermarkSettings {
+  const watermarkMode =
+    typeof settings.watermark_mode === "string" &&
+    isWatermarkMode(settings.watermark_mode)
+      ? settings.watermark_mode
+      : DEFAULT_WATERMARK_SETTINGS.watermark_mode;
+
   return {
-    watermark_enabled: settings.watermark_enabled,
-    watermark_text: settings.watermark_text,
-    watermark_font: settings.watermark_font,
-    watermark_mode: settings.watermark_mode,
-    watermark_color: settings.watermark_color,
-    watermark_light_color: settings.watermark_light_color,
-    watermark_dark_color: settings.watermark_dark_color,
-    watermark_opacity: settings.watermark_opacity,
-    watermark_rotation: settings.watermark_rotation,
-    watermark_font_scale: settings.watermark_font_scale,
-    watermark_spacing_x: settings.watermark_spacing_x,
-    watermark_spacing_y: settings.watermark_spacing_y,
-    watermark_repeat: settings.watermark_repeat,
+    watermark_enabled: Boolean(settings.watermark_enabled),
+    watermark_text:
+      typeof settings.watermark_text === "string"
+        ? settings.watermark_text
+        : DEFAULT_WATERMARK_SETTINGS.watermark_text,
+    watermark_font:
+      getApprovedWatermarkFontKey(
+        typeof settings.watermark_font === "string"
+          ? settings.watermark_font
+          : null,
+      ) ?? DEFAULT_WATERMARK_SETTINGS.watermark_font,
+    watermark_mode: watermarkMode,
+    watermark_color:
+      typeof settings.watermark_color === "string"
+        ? settings.watermark_color
+        : DEFAULT_WATERMARK_SETTINGS.watermark_color,
+    watermark_light_color:
+      typeof settings.watermark_light_color === "string"
+        ? settings.watermark_light_color
+        : DEFAULT_WATERMARK_SETTINGS.watermark_light_color,
+    watermark_dark_color:
+      typeof settings.watermark_dark_color === "string"
+        ? settings.watermark_dark_color
+        : DEFAULT_WATERMARK_SETTINGS.watermark_dark_color,
+    watermark_opacity:
+      typeof settings.watermark_opacity === "number"
+        ? settings.watermark_opacity
+        : DEFAULT_WATERMARK_SETTINGS.watermark_opacity,
+    watermark_rotation:
+      typeof settings.watermark_rotation === "number"
+        ? settings.watermark_rotation
+        : DEFAULT_WATERMARK_SETTINGS.watermark_rotation,
+    watermark_font_scale:
+      typeof settings.watermark_font_scale === "number"
+        ? settings.watermark_font_scale
+        : DEFAULT_WATERMARK_SETTINGS.watermark_font_scale,
+    watermark_spacing_x:
+      typeof settings.watermark_spacing_x === "number"
+        ? settings.watermark_spacing_x
+        : DEFAULT_WATERMARK_SETTINGS.watermark_spacing_x,
+    watermark_spacing_y:
+      typeof settings.watermark_spacing_y === "number"
+        ? settings.watermark_spacing_y
+        : DEFAULT_WATERMARK_SETTINGS.watermark_spacing_y,
+    watermark_repeat:
+      typeof settings.watermark_repeat === "boolean"
+        ? settings.watermark_repeat
+        : DEFAULT_WATERMARK_SETTINGS.watermark_repeat,
   };
 }

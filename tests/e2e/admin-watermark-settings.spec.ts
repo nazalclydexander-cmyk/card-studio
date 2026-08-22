@@ -19,7 +19,7 @@ const FIXTURE_IMAGE_PATH = path.join(
 const unsavedDraftConfig = {
   text: "UNSAVED DRAFT",
   mode: "manual",
-  font: "trebuchet_ms",
+  font: "inter",
   manualColor: "#00AA00",
   opacity: 33,
   rotation: -12,
@@ -83,7 +83,7 @@ test.describe.serial("admin watermark settings", () => {
         await setCheckbox(page, "Enable watermark", true);
         await getWatermarkControl(page, "Watermark text").fill("TEST WATERMARK");
         await getWatermarkControl(page, "Mode").selectOption("manual");
-        await getWatermarkControl(page, "Font").selectOption("georgia");
+        await getWatermarkControl(page, "Font").selectOption("libre_baskerville");
         await getWatermarkControl(page, "Manual color hex value").fill("#FF0000");
         await setSlider(page, "Opacity", 40);
         await setSlider(page, "Rotation", 0);
@@ -92,7 +92,7 @@ test.describe.serial("admin watermark settings", () => {
       undefined,
       (headers) =>
         headers.text === "TEST WATERMARK" &&
-        headers.font === "georgia" &&
+        headers.font === "libre_baskerville" &&
         headers.opacity === "0.40" &&
         headers.rotation === "0" &&
         headers.repeat === "true" &&
@@ -102,7 +102,7 @@ test.describe.serial("admin watermark settings", () => {
 
     expect(manualHeaders.status).toBe(200);
     expect(manualHeaders.text).toBe("TEST WATERMARK");
-    expect(manualHeaders.font).toBe("georgia");
+    expect(manualHeaders.font).toBe("libre_baskerville");
     expect(manualHeaders.opacity).toBe("0.40");
     expect(manualHeaders.rotation).toBe("0");
     expect(manualHeaders.repeat).toBe("true");
@@ -112,7 +112,7 @@ test.describe.serial("admin watermark settings", () => {
     const manualVariantHeaders = await waitForAppearancePreview(
       page,
       async () => {
-        await getWatermarkControl(page, "Font").selectOption("trebuchet_ms");
+        await getWatermarkControl(page, "Font").selectOption("inter");
         await getWatermarkControl(page, "Manual color hex value").fill("#0000FF");
         await setSlider(page, "Opacity", 15);
         await setSlider(page, "Rotation", 45);
@@ -120,7 +120,7 @@ test.describe.serial("admin watermark settings", () => {
       undefined,
       (headers) =>
         headers.text === "TEST WATERMARK" &&
-        headers.font === "trebuchet_ms" &&
+        headers.font === "inter" &&
         headers.opacity === "0.15" &&
         headers.rotation === "45" &&
         headers.repeat === "true" &&
@@ -129,7 +129,7 @@ test.describe.serial("admin watermark settings", () => {
     );
 
     expect(manualVariantHeaders.text).toBe("TEST WATERMARK");
-    expect(manualVariantHeaders.font).toBe("trebuchet_ms");
+    expect(manualVariantHeaders.font).toBe("inter");
     expect(manualVariantHeaders.opacity).toBe("0.15");
     expect(manualVariantHeaders.rotation).toBe("45");
     expect(manualVariantHeaders.fill).toContain("0, 0, 255");
@@ -145,7 +145,7 @@ test.describe.serial("admin watermark settings", () => {
       undefined,
       (headers) =>
         headers.text === "TEST WATERMARK" &&
-        headers.font === "trebuchet_ms" &&
+        headers.font === "inter" &&
         headers.opacity === "0.40" &&
         headers.rotation === "45" &&
         headers.repeat === "true" &&
@@ -173,7 +173,7 @@ test.describe.serial("admin watermark settings", () => {
       previewRequests,
       (headers) =>
         headers.text === "FINAL RAPID" &&
-        headers.font === "trebuchet_ms" &&
+        headers.font === "inter" &&
         headers.opacity === "0.33" &&
         headers.rotation === "-12" &&
         headers.repeat === "true" &&
@@ -278,7 +278,7 @@ test.describe.serial("admin watermark settings", () => {
       ...originalValues,
       text: temporaryText,
       mode: "manual",
-      font: "georgia",
+      font: "libre_baskerville",
       manualColor: "#8F655C",
       lightColor: "#FF0000",
       darkColor: "#0000FF",
