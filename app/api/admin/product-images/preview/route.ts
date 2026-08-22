@@ -17,6 +17,8 @@ import {
   validateWatermarkSettings,
   type WatermarkSettingsInput,
 } from "@/lib/watermark-settings";
+import { isTrustedMutationOrigin } from "@/lib/request-security";
+import { logSecurityEvent } from "@/lib/security-events";
 
 function isAllowedMimeType(mimeType: string) {
   return PRODUCT_IMAGE_ALLOWED_MIME_TYPES.includes(mimeType as never);
@@ -27,6 +29,17 @@ function badRequest(message: string) {
 }
 
 export async function POST(request: Request) {
+  if (!isTrustedMutationOrigin(request.headers)) {
+    logSecurityEvent("admin_origin_rejected", {
+      origin: request.headers.get("origin"),
+    });
+
+    return NextResponse.json(
+      { message: "This request origin is not allowed." },
+      { status: 403 },
+    );
+  }
+
   const access = await getAdminAccess();
 
   if (!access.userId) {

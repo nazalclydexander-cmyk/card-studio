@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 import { getAdminCredentials } from "./tests/e2e/helpers/safety";
 
@@ -7,8 +8,32 @@ import {
   shouldStartLocalWebServer,
 } from "./tests/e2e/helpers/safety";
 
+if (fs.existsSync(".env.local")) {
+  process.loadEnvFile?.(".env.local");
+}
+
+if (fs.existsSync(".env")) {
+  process.loadEnvFile?.(".env");
+}
+
 const baseURL = getPlaywrightBaseUrl();
 const adminCredentials = getAdminCredentials();
+const localWebServerEnv = shouldStartLocalWebServer(baseURL)
+  ? {
+      ...process.env,
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY:
+        process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA",
+      TURNSTILE_SECRET_KEY:
+        process.env.TURNSTILE_SECRET_KEY || "1x0000000000000000000000000000000AA",
+      RATE_LIMIT_HASH_SECRET:
+        process.env.RATE_LIMIT_HASH_SECRET || "playwright-local-rate-limit-secret",
+      CUSTOMER_INQUIRY_IP_LIMIT: process.env.CUSTOMER_INQUIRY_IP_LIMIT || "2",
+      CUSTOMER_INQUIRY_EMAIL_LIMIT:
+        process.env.CUSTOMER_INQUIRY_EMAIL_LIMIT || "2",
+      CUSTOMER_INQUIRY_DUPLICATE_WINDOW_SECONDS:
+        process.env.CUSTOMER_INQUIRY_DUPLICATE_WINDOW_SECONDS || "300",
+    }
+  : undefined;
 
 assertSafePlaywrightBaseUrl(baseURL);
 
@@ -28,6 +53,7 @@ export default defineConfig({
   webServer: shouldStartLocalWebServer(baseURL)
       ? {
         command: "npm run build && npm run start",
+        env: localWebServerEnv,
         url: baseURL,
         reuseExistingServer: true,
         timeout: 120_000,

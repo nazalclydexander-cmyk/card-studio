@@ -19,7 +19,8 @@ export type CustomerInquiryFormValues = {
   message: string;
   submitter_timezone: string;
   submitter_utc_offset_minutes: string;
-  website: string;
+  company_name: string;
+  turnstile_token: string;
 };
 
 export type CustomerInquiryFieldErrors = Partial<
@@ -46,7 +47,8 @@ export const defaultCustomerInquiryFormValues: CustomerInquiryFormValues = {
   message: "",
   submitter_timezone: "",
   submitter_utc_offset_minutes: "",
-  website: "",
+  company_name: "",
+  turnstile_token: "",
 };
 
 export function createInitialCustomerInquiryFormState(
@@ -71,16 +73,24 @@ export type ValidatedCustomerInquiryInput = {
   submitterTimezone: string | null;
   submitterUtcOffsetMinutes: number | null;
   isSpam: boolean;
+  turnstileToken: string | null;
 };
 
 const emailPattern = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const controlCharacterPattern = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+const collapsedWhitespacePattern = /\s+/g;
+const CUSTOMER_INQUIRY_MAX_QUANTITY = 100_000;
+const CUSTOMER_INQUIRY_MIN_MESSAGE_LENGTH = 10;
 
 function normalizeText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
 
 function normalizeMultilineText(value: FormDataEntryValue | null) {
-  return normalizeText(value).replace(/\s+\n/g, "\n");
+  return normalizeText(value)
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n");
 }
 
 function normalizePhone(value: string) {
@@ -122,6 +132,32 @@ function normalizeUtcOffsetMinutes(value: string) {
   return parsedValue;
 }
 
+function containsUnsafeControlCharacters(value: string) {
+  return controlCharacterPattern.test(value);
+}
+
+function hasMeaningfulMessageLength(value: string) {
+  return value.replace(collapsedWhitespacePattern, " ").trim().length
+    >= CUSTOMER_INQUIRY_MIN_MESSAGE_LENGTH;
+}
+
+export function buildNormalizedInquiryFingerprintSource(input: {
+  email: string | null;
+  phone: string | null;
+  message: string;
+  productId: string | null;
+  eventDate: string | null;
+}) {
+  const contactIdentity = input.email || input.phone || "";
+
+  return JSON.stringify({
+    contact: contactIdentity,
+    event_date: input.eventDate || "",
+    message: input.message,
+    product_id: input.productId || "",
+  });
+}
+
 export function getCustomerInquiryFormValues(
   formData: FormData,
 ): CustomerInquiryFormValues {
@@ -137,7 +173,8 @@ export function getCustomerInquiryFormValues(
     submitter_utc_offset_minutes: normalizeText(
       formData.get("submitter_utc_offset_minutes"),
     ),
-    website: normalizeText(formData.get("website")),
+    company_name: normalizeText(formData.get("company_name")),
+    turnstile_token: normalizeText(formData.get("cf-turnstile-response")),
   };
 }
 
@@ -159,6 +196,8 @@ export function validateCustomerInquiryFormValues(
     fieldErrors.customer_name = "Name is required.";
   } else if (values.customer_name.length > 120) {
     fieldErrors.customer_name = "Name must be 120 characters or fewer.";
+  } else if (containsUnsafeControlCharacters(values.customer_name)) {
+    fieldErrors.customer_name = "Name contains unsupported characters.";
   }
 
   if (values.email && !emailPattern.test(values.email)) {
@@ -169,6 +208,8 @@ export function validateCustomerInquiryFormValues(
 
   if (values.phone.length > 40) {
     fieldErrors.phone = "Phone number must be 40 characters or fewer.";
+  } else if (containsUnsafeControlCharacters(values.phone)) {
+    fieldErrors.phone = "Phone number contains unsupported characters.";
   }
 
   if (!values.email && !values.phone) {
@@ -185,6 +226,8 @@ export function validateCustomerInquiryFormValues(
     parsedQuantity = Number(values.quantity);
     if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
       fieldErrors.quantity = "Quantity must be a whole number greater than 0.";
+    } else if (parsedQuantity > CUSTOMER_INQUIRY_MAX_QUANTITY) {
+      fieldErrors.quantity = "Quantity is too large.";
     }
   }
 
@@ -192,9 +235,15 @@ export function validateCustomerInquiryFormValues(
     fieldErrors.message = "Message is required.";
   } else if (values.message.length > 2000) {
     fieldErrors.message = "Message must be 2000 characters or fewer.";
+  } else if (containsUnsafeControlCharacters(values.message)) {
+    fieldErrors.message = "Message contains unsupported characters.";
+  } else if (!hasMeaningfulMessageLength(values.message)) {
+    fieldErrors.message = "Please include a little more detail in your message.";
   }
 
   if (values.product_slug.length > 160) {
+    fieldErrors.product_slug = "Invalid product reference.";
+  } else if (values.product_slug && !slugPattern.test(values.product_slug)) {
     fieldErrors.product_slug = "Invalid product reference.";
   }
 
@@ -220,7 +269,8 @@ export function validateCustomerInquiryFormValues(
       submitterUtcOffsetMinutes: normalizeUtcOffsetMinutes(
         values.submitter_utc_offset_minutes,
       ),
-      isSpam: Boolean(values.website),
+      isSpam: Boolean(values.company_name),
+      turnstileToken: values.turnstile_token || null,
     },
   };
 }

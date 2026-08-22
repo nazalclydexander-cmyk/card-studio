@@ -160,7 +160,10 @@ async function EditCategoryContent({
         <CardContent className="space-y-4">
           {resolvedSearchParams.danger !== "delete" ? (
             <Button asChild variant="destructive">
-              <Link href={`/admin/categories/${category.id}/edit?danger=delete`}>
+              <Link
+                href={`/admin/categories/${category.id}/edit?danger=delete`}
+                prefetch={false}
+              >
                 Delete category
               </Link>
             </Button>

@@ -73,13 +73,18 @@ function getPercentileLuminance(values: number[], percentile: number) {
 }
 
 async function analyzePreviewBrightness(previewBuffer: Buffer) {
-  const stats = await sharp(previewBuffer).stats();
+  const normalizedPreview = sharp(previewBuffer)
+    .ensureAlpha()
+    .toColourspace("srgb");
+
+  const stats = await normalizedPreview.clone().stats();
   const [red = { mean: 255 }, green = { mean: 255 }, blue = { mean: 255 }] =
     stats.channels;
   const brightness =
     (0.2126 * red.mean + 0.7152 * green.mean + 0.0722 * blue.mean) / 255;
 
-  const { data, info } = await sharp(previewBuffer)
+  const { data, info } = await normalizedPreview
+    .clone()
     .removeAlpha()
     .resize({
       width: 64,
@@ -320,6 +325,8 @@ export async function createProtectedProductPreview({
       fit: "inside",
       withoutEnlargement: true,
     })
+    .ensureAlpha()
+    .toColourspace("srgb")
     .toBuffer({ resolveWithObject: true });
 
   const width = resized.info.width;
@@ -329,7 +336,9 @@ export async function createProtectedProductPreview({
     throw new Error("Unable to determine preview dimensions.");
   }
 
-  const resizedImage = sharp(resized.data);
+  const resizedImage = sharp(resized.data)
+    .ensureAlpha()
+    .toColourspace("srgb");
   const brightnessAnalysis = await analyzePreviewBrightness(resized.data);
   const contrastProfile = getWatermarkContrastProfile(brightnessAnalysis);
   const colorSelection = resolveWatermarkColor(

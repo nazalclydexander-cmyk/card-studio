@@ -1,17 +1,24 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useRef, useState } from "react";
 
-import { submitCustomerInquiryAction } from "@/app/contact/actions";
 import { AdminNotice } from "@/components/admin/admin-notice";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/public/turnstile-widget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  createInitialCustomerInquiryFormState,
-  type CustomerInquiryFormValues,
+  defaultCustomerInquiryFormValues,
+  type CustomerInquiryFieldErrors,
 } from "@/lib/customer-inquiries";
+import {
+  getClientTurnstileSiteKey,
+  TURNSTILE_RESPONSE_FIELD_NAME,
+} from "@/lib/turnstile";
 
 type ContactInquiryFormProps = {
   productSlug: string | null;
@@ -28,72 +35,124 @@ function FieldError({ message }: { message?: string }) {
 export function ContactInquiryForm({
   productSlug,
 }: ContactInquiryFormProps) {
-  const submitterTimeZoneRef = useRef<HTMLInputElement>(null);
-  const submitterUtcOffsetMinutesRef = useRef<HTMLInputElement>(null);
-
-  const initialValues: CustomerInquiryFormValues = {
-    ...createInitialCustomerInquiryFormState().values,
+  const initialValues = {
+    ...defaultCustomerInquiryFormValues,
     product_slug: productSlug ?? "",
   };
 
-  const [state, formAction, pending] = useActionState(
-    submitCustomerInquiryAction,
-    createInitialCustomerInquiryFormState(initialValues),
-  );
-
-  useEffect(() => {
-    const submitterTimeZoneInput = submitterTimeZoneRef.current;
-    const submitterUtcOffsetInput = submitterUtcOffsetMinutesRef.current;
-
-    if (!submitterTimeZoneInput || !submitterUtcOffsetInput) {
-      return;
+  const formRef = useRef<HTMLFormElement>(null);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<CustomerInquiryFieldErrors>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileSiteKey = getClientTurnstileSiteKey();
+  const submitterTimeZone = (() => {
+    if (typeof window === "undefined") {
+      return initialValues.submitter_timezone;
     }
 
     try {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      submitterTimeZoneInput.value = typeof timeZone === "string" ? timeZone : "";
+      return typeof timeZone === "string" ? timeZone : "";
     } catch {
-      submitterTimeZoneInput.value = "";
+      return "";
+    }
+  })();
+  const submitterUtcOffsetMinutes = typeof window === "undefined"
+    ? initialValues.submitter_utc_offset_minutes
+    : String(-new Date().getTimezoneOffset());
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const form = formRef.current;
+
+    if (!form) {
+      return;
     }
 
-    submitterUtcOffsetInput.value = String(-new Date().getTimezoneOffset());
-  }, []);
+    setPending(true);
+    setMessage("");
+    setFieldErrors({});
 
-  const values = state.values;
+    const formData = new FormData(form);
+
+    if (turnstileToken) {
+      formData.set(TURNSTILE_RESPONSE_FIELD_NAME, turnstileToken);
+    }
+
+    try {
+      const response = await fetch("/api/public/inquiries", {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      });
+      const result = (await response.json()) as {
+        success?: boolean;
+        redirectUrl?: string;
+        message?: string;
+        fieldErrors?: CustomerInquiryFieldErrors;
+      };
+
+      if (response.ok && result.success && result.redirectUrl) {
+        window.location.assign(result.redirectUrl);
+        return;
+      }
+
+      setMessage(
+        result.message
+          || "We couldn't submit your inquiry right now. Please try again in a moment.",
+      );
+      setFieldErrors(result.fieldErrors ?? {});
+      turnstileRef.current?.reset();
+    } catch {
+      setMessage(
+        "We couldn't submit your inquiry right now. Please try again in a moment.",
+      );
+      turnstileRef.current?.reset();
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       <input
         type="hidden"
         name="product_slug"
-        value={values.product_slug}
+        value={initialValues.product_slug}
         readOnly
       />
       <input
-        ref={submitterTimeZoneRef}
         type="hidden"
         name="submitter_timezone"
-        defaultValue={values.submitter_timezone}
+        value={submitterTimeZone}
+        readOnly
+        suppressHydrationWarning
       />
       <input
-        ref={submitterUtcOffsetMinutesRef}
         type="hidden"
         name="submitter_utc_offset_minutes"
-        defaultValue={values.submitter_utc_offset_minutes}
+        value={submitterUtcOffsetMinutes}
+        readOnly
+        suppressHydrationWarning
       />
-      <div className="hidden" aria-hidden="true">
-        <Label htmlFor="website">Website</Label>
+      <div
+        className="absolute left-[-10000px] top-auto h-px w-px overflow-hidden"
+        aria-hidden="true"
+      >
+        <Label htmlFor="company_name">Company name</Label>
         <Input
-          id="website"
-          name="website"
-          defaultValue={values.website}
+          id="company_name"
+          name="company_name"
+          defaultValue={initialValues.company_name}
           tabIndex={-1}
           autoComplete="off"
         />
       </div>
 
-      {state.message ? <AdminNotice tone="error">{state.message}</AdminNotice> : null}
+      {message ? <AdminNotice tone="error">{message}</AdminNotice> : null}
 
       <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
         <div className="space-y-2">
@@ -101,13 +160,13 @@ export function ContactInquiryForm({
           <Input
             id="customer_name"
             name="customer_name"
-            defaultValue={values.customer_name}
+            defaultValue={initialValues.customer_name}
             required
             maxLength={120}
             autoComplete="name"
             className="h-11"
           />
-          <FieldError message={state.fieldErrors.customer_name} />
+          <FieldError message={fieldErrors.customer_name} />
         </div>
 
         <div className="space-y-2">
@@ -116,12 +175,12 @@ export function ContactInquiryForm({
             id="email"
             name="email"
             type="email"
-            defaultValue={values.email}
+            defaultValue={initialValues.email}
             maxLength={254}
             autoComplete="email"
             className="h-11"
           />
-          <FieldError message={state.fieldErrors.email} />
+          <FieldError message={fieldErrors.email} />
         </div>
 
         <div className="space-y-2">
@@ -129,12 +188,12 @@ export function ContactInquiryForm({
           <Input
             id="phone"
             name="phone"
-            defaultValue={values.phone}
+            defaultValue={initialValues.phone}
             maxLength={40}
             autoComplete="tel"
             className="h-11"
           />
-          <FieldError message={state.fieldErrors.phone} />
+          <FieldError message={fieldErrors.phone} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="event_date">Event Date</Label>
@@ -142,15 +201,15 @@ export function ContactInquiryForm({
             id="event_date"
             name="event_date"
             type="date"
-            defaultValue={values.event_date}
+            defaultValue={initialValues.event_date}
             autoComplete="off"
             className="h-11"
           />
-          <FieldError message={state.fieldErrors.event_date} />
+          <FieldError message={fieldErrors.event_date} />
         </div>
       </div>
 
-      <FieldError message={state.fieldErrors.contact_method} />
+      <FieldError message={fieldErrors.contact_method} />
 
       <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
         <div className="space-y-2 md:max-w-[220px]">
@@ -161,11 +220,11 @@ export function ContactInquiryForm({
             type="number"
             min="1"
             step="1"
-            defaultValue={values.quantity}
+            defaultValue={initialValues.quantity}
             inputMode="numeric"
             className="h-11"
           />
-          <FieldError message={state.fieldErrors.quantity} />
+          <FieldError message={fieldErrors.quantity} />
         </div>
       </div>
 
@@ -174,12 +233,21 @@ export function ContactInquiryForm({
         <Textarea
           id="message"
           name="message"
-          defaultValue={values.message}
+          defaultValue={initialValues.message}
           required
           maxLength={2000}
           className="min-h-[132px] sm:min-h-[144px]"
         />
-        <FieldError message={state.fieldErrors.message} />
+        <FieldError message={fieldErrors.message} />
+      </div>
+
+      <div className="space-y-2">
+        <TurnstileWidget
+          ref={turnstileRef}
+          siteKey={turnstileSiteKey}
+          onTokenChange={setTurnstileToken}
+        />
+        <FieldError message={fieldErrors.turnstile_token} />
       </div>
 
       <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
