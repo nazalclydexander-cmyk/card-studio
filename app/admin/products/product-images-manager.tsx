@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
+import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
 import {
   deleteProductImageAction,
   setPrimaryProductImageAction,
@@ -31,6 +32,24 @@ type FeedbackState = {
   message: string;
 };
 
+type SelectedImagePreview = {
+  id: string;
+  fileName: string;
+  originalUrl: string;
+  protectedPreviewUrl: string | null;
+  status: "loading" | "ready" | "error";
+  message: string | null;
+};
+
+function revokeSelectedImagePreviewUrls(previews: SelectedImagePreview[]) {
+  for (const item of previews) {
+    URL.revokeObjectURL(item.originalUrl);
+    if (item.protectedPreviewUrl) {
+      URL.revokeObjectURL(item.protectedPreviewUrl);
+    }
+  }
+}
+
 function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
 }
@@ -48,6 +67,13 @@ export function ProductImagesManager({
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [imagePendingDelete, setImagePendingDelete] = useState<{
+    id: string;
+    fileName: string;
+  } | null>(null);
+  const [selectedImagePreviews, setSelectedImagePreviews] = useState<
+    SelectedImagePreview[]
+  >([]);
 
   const sortedImages = useMemo(
     () =>
@@ -64,6 +90,124 @@ export function ProductImagesManager({
       }),
     [images],
   );
+
+  function handleSelectedFilesChange(fileList: FileList | null) {
+    if (!fileList?.length) {
+      setSelectedFiles(null);
+      setSelectedImagePreviews((current) => {
+        revokeSelectedImagePreviewUrls(current);
+        return [];
+      });
+      return;
+    }
+
+    setSelectedFiles(fileList);
+  }
+
+  useEffect(() => {
+    let isActive = true;
+    const controller = new AbortController();
+    const createdOriginalUrls: string[] = [];
+    const generatedPreviewUrls: string[] = [];
+
+    async function generateSelectedPreviews(files: File[]) {
+      const previewEntries = files.map((file, index) => ({
+        id: `${file.name}-${file.lastModified}-${index}`,
+        fileName: file.name,
+        originalUrl: URL.createObjectURL(file),
+        protectedPreviewUrl: null,
+        status: "loading" as const,
+        message: null,
+      }));
+      createdOriginalUrls.push(...previewEntries.map((entry) => entry.originalUrl));
+
+      setSelectedImagePreviews(previewEntries);
+
+      await Promise.all(
+        previewEntries.map(async (entry, index) => {
+          const file = files[index];
+
+          try {
+            const previewFormData = new FormData();
+            previewFormData.set("image", file);
+
+            const response = await fetch("/api/admin/product-images/preview", {
+              method: "POST",
+              body: previewFormData,
+              cache: "no-store",
+              signal: controller.signal,
+            });
+
+            if (!response.ok) {
+              throw new Error("Preview unavailable");
+            }
+
+            const previewBlob = await response.blob();
+            const protectedPreviewUrl = URL.createObjectURL(previewBlob);
+            generatedPreviewUrls.push(protectedPreviewUrl);
+
+            if (!isActive) {
+              URL.revokeObjectURL(protectedPreviewUrl);
+              return;
+            }
+
+            setSelectedImagePreviews((current) =>
+              current.map((item) =>
+                item.id === entry.id
+                  ? {
+                      ...item,
+                      protectedPreviewUrl,
+                      status: "ready",
+                    }
+                  : item,
+              ),
+            );
+          } catch {
+            if (!isActive || controller.signal.aborted) {
+              return;
+            }
+
+            setSelectedImagePreviews((current) =>
+              current.map((item) =>
+                item.id === entry.id
+                  ? {
+                      ...item,
+                      status: "error",
+                      message:
+                        "The protected preview could not be generated right now.",
+                    }
+                  : item,
+              ),
+            );
+          }
+        }),
+      );
+    }
+
+    const files = selectedFiles ? Array.from(selectedFiles) : [];
+
+    if (!files.length) {
+      return () => {
+        isActive = false;
+        controller.abort();
+      };
+    }
+
+    void generateSelectedPreviews(files);
+
+    return () => {
+      isActive = false;
+      controller.abort();
+
+      for (const url of createdOriginalUrls) {
+        URL.revokeObjectURL(url);
+      }
+
+      for (const url of generatedPreviewUrls) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [selectedFiles]);
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -155,99 +299,187 @@ export function ProductImagesManager({
   }
 
   function handleDeleteImage(imageId: string) {
-    const confirmed = window.confirm(
-      "Delete this image from both the catalog metadata and Supabase Storage?",
-    );
+    const targetImage = images.find((image) => image.id === imageId);
 
-    if (!confirmed) {
-      return;
-    }
-
-    setFeedback(null);
-
-    startTransition(async () => {
-      const result = await deleteProductImageAction({
-        imageId,
-        productId,
-      });
-
-      setFeedback({
-        tone: result.success ? "default" : "destructive",
-        message: result.message,
-      });
-
-      if (result.success) {
-        router.refresh();
-      }
+    setImagePendingDelete({
+      id: imageId,
+      fileName:
+        targetImage?.alt_text?.trim() ||
+        `${productName} image${targetImage?.is_primary ? " (primary)" : ""}`,
     });
   }
 
   return (
-    <section className="space-y-6 rounded-2xl border p-6">
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight">Product images</h2>
-        <p className="text-sm text-muted-foreground">
-          Upload JPG, PNG, or WebP images up to{" "}
-          {formatBytes(PRODUCT_IMAGE_MAX_FILE_SIZE_BYTES)} each. The first image
-          becomes the primary catalog image automatically when none exists yet.
-          Clean originals stay private, and a protected preview is generated
-          automatically for the storefront.
-        </p>
-      </div>
-
-      {feedback ? (
-        <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            feedback.tone === "destructive"
-              ? "border-destructive/30 bg-destructive/5 text-destructive"
-              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-          }`}
-        >
-          {feedback.message}
-        </div>
-      ) : null}
-
-      <form
-        onSubmit={handleUpload}
-        className="space-y-4 rounded-xl border border-dashed p-4"
-      >
+    <>
+      <section className="space-y-6 rounded-2xl border p-6">
         <div className="space-y-2">
-          <Label htmlFor="product-images-upload">Upload images</Label>
-          <Input
-            id="product-images-upload"
-            type="file"
-            accept={PRODUCT_IMAGE_ALLOWED_MIME_TYPES.join(",")}
-            multiple
-            onChange={(event) => setSelectedFiles(event.target.files)}
-            disabled={isPending}
-          />
+          <h2 className="text-2xl font-semibold tracking-tight">Product images</h2>
+          <p className="text-sm text-muted-foreground">
+            Upload JPG, PNG, or WebP images up to{" "}
+            {formatBytes(PRODUCT_IMAGE_MAX_FILE_SIZE_BYTES)} each. The first image
+            becomes the primary catalog image automatically when none exists yet.
+            Clean originals stay private, and a protected preview is generated
+            automatically for the storefront.
+          </p>
         </div>
 
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Working..." : "Upload selected images"}
-        </Button>
-      </form>
+        {feedback ? (
+          <div
+            className={`rounded-lg border px-4 py-3 text-sm ${
+              feedback.tone === "destructive"
+                ? "border-destructive/30 bg-destructive/5 text-destructive"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+            }`}
+          >
+            {feedback.message}
+          </div>
+        ) : null}
 
-      {sortedImages.length === 0 ? (
-        <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          No images uploaded yet for {productName}.
-        </div>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {sortedImages.map((image) => (
-            <ProductImageArticle
-              key={image.id}
-              image={image}
-              productName={productName}
-              isPending={isPending}
-              onDelete={handleDeleteImage}
-              onSetPrimary={handleSetPrimary}
-              onSave={handleDetailsSave}
+        <form
+          onSubmit={handleUpload}
+          className="space-y-4 rounded-xl border border-dashed p-4"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="product-images-upload">Upload images</Label>
+            <Input
+              id="product-images-upload"
+              type="file"
+              accept={PRODUCT_IMAGE_ALLOWED_MIME_TYPES.join(",")}
+              multiple
+              onChange={(event) => handleSelectedFilesChange(event.target.files)}
+              disabled={isPending}
             />
-          ))}
-        </div>
-      )}
-    </section>
+          </div>
+
+          {selectedImagePreviews.length > 0 ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {selectedImagePreviews.map((preview) => (
+                <div key={preview.id} className="space-y-3 rounded-xl border p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="min-w-0 truncate text-sm font-medium">
+                      {preview.fileName}
+                    </p>
+                    <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
+                      Temporary preview
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                        Original selected
+                      </p>
+                      <div className="relative aspect-[4/5] overflow-hidden rounded-xl border bg-muted/30">
+                        <Image
+                          src={preview.originalUrl}
+                          alt={`${preview.fileName} original preview`}
+                          fill
+                          sizes="(max-width: 640px) 100vw, 240px"
+                          className="object-contain"
+                          unoptimized
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                        Protected preview
+                      </p>
+                      <div className="relative aspect-[4/5] overflow-hidden rounded-xl border bg-muted/30">
+                        {preview.protectedPreviewUrl ? (
+                          <Image
+                            src={preview.protectedPreviewUrl}
+                            alt={`${preview.fileName} protected preview`}
+                            fill
+                            sizes="(max-width: 640px) 100vw, 240px"
+                            className="object-contain"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                            {preview.status === "loading"
+                              ? "Generating protected preview..."
+                              : preview.message ?? "Preview unavailable"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Working..." : "Upload selected images"}
+          </Button>
+        </form>
+
+        {sortedImages.length === 0 ? (
+          <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            No images uploaded yet for {productName}.
+          </div>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {sortedImages.map((image) => (
+              <ProductImageArticle
+                key={image.id}
+                image={image}
+                productName={productName}
+                isPending={isPending}
+                onDelete={handleDeleteImage}
+                onSetPrimary={handleSetPrimary}
+                onSave={handleDetailsSave}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <AdminConfirmDialog
+        open={Boolean(imagePendingDelete)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setImagePendingDelete(null);
+          }
+        }}
+        title="Delete this image?"
+        description={
+          imagePendingDelete
+            ? `This will permanently remove "${imagePendingDelete.fileName}" from the catalog and storage. This action cannot be undone.`
+            : "This image will be permanently removed."
+        }
+        confirmLabel={isPending ? "Deleting..." : "Delete image"}
+        variant="destructive"
+        isLoading={isPending}
+        disableClose={isPending}
+        onConfirm={async () => {
+          if (!imagePendingDelete) {
+            return;
+          }
+
+          const imageId = imagePendingDelete.id;
+          setFeedback(null);
+
+          startTransition(async () => {
+            const result = await deleteProductImageAction({
+              imageId,
+              productId,
+            });
+
+            setFeedback({
+              tone: result.success ? "default" : "destructive",
+              message: result.message,
+            });
+
+            if (result.success) {
+              setImagePendingDelete(null);
+              router.refresh();
+            }
+          });
+        }}
+      />
+    </>
   );
 }
 

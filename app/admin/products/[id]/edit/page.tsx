@@ -122,6 +122,7 @@ async function EditProductContent({
           product_id,
           storage_path,
           preview_path,
+          preview_updated_at,
           alt_text,
           sort_order,
           is_primary,
@@ -211,9 +212,14 @@ async function EditProductContent({
         }))}
         initialValues={initialValues}
         submitLabel="Save changes"
+        submitLoadingLabel="Saving..."
         heading="Basic information"
         description="Update the core product details. If you change the product name, the slug is regenerated from the new name and safely de-duplicated if needed."
         cancelHref="/admin/products"
+        confirmTitle="Update this product?"
+        confirmDescription="The product details will be updated in the catalog."
+        confirmLabel="Save changes"
+        confirmLoadingLabel="Saving..."
       />
 
       <ProductImagesManager

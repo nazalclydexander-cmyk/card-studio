@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { toggleCategoryActiveAction } from "@/app/admin/categories/actions";
+import { CategoryListActionButtons } from "@/app/admin/categories/category-list-action-buttons";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminNotice } from "@/components/admin/admin-notice";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -228,33 +228,11 @@ async function CategoriesManagerContent({
                     {createdAtFormatter.format(new Date(category.created_at))}
                   </td>
                   <td className="px-4 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/admin/categories/${category.id}/edit`}>
-                          Edit
-                        </Link>
-                      </Button>
-
-                      <form
-                        action={toggleCategoryActiveAction.bind(
-                          null,
-                          category.id,
-                          !category.active,
-                        )}
-                      >
-                        <Button size="sm" type="submit" variant="secondary">
-                          {category.active ? "Deactivate" : "Activate"}
-                        </Button>
-                      </form>
-
-                      <Button asChild size="sm" variant="destructive">
-                        <Link
-                          href={`/admin/categories/${category.id}/edit?danger=delete`}
-                        >
-                          Delete
-                        </Link>
-                      </Button>
-                    </div>
+                    <CategoryListActionButtons
+                      categoryId={category.id}
+                      categoryName={category.name}
+                      active={category.active}
+                    />
                   </td>
                 </tr>
               );
@@ -307,29 +285,11 @@ async function CategoriesManagerContent({
                   </div>
                 </dl>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/admin/categories/${category.id}/edit`}>
-                      Edit
-                    </Link>
-                  </Button>
-                  <form
-                    action={toggleCategoryActiveAction.bind(
-                      null,
-                      category.id,
-                      !category.active,
-                    )}
-                  >
-                    <Button size="sm" type="submit" variant="secondary">
-                      {category.active ? "Deactivate" : "Activate"}
-                    </Button>
-                  </form>
-                  <Button asChild size="sm" variant="destructive">
-                    <Link href={`/admin/categories/${category.id}/edit?danger=delete`}>
-                      Delete
-                    </Link>
-                  </Button>
-                </div>
+                <CategoryListActionButtons
+                  categoryId={category.id}
+                  categoryName={category.name}
+                  active={category.active}
+                />
               </CardContent>
             </Card>
           );

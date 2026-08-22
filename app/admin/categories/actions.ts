@@ -484,3 +484,19 @@ export async function deleteCategoryAction(
   await revalidateCategoryRoutes();
   redirect("/admin/categories?deleted=1");
 }
+
+export async function deleteCategoryFromListAction(
+  categoryId: string,
+  categoryName: string,
+) {
+  const formData = new FormData();
+  formData.set("confirm_delete", "on");
+  formData.set("delete_name", categoryName);
+
+  return deleteCategoryAction(
+    categoryId,
+    categoryName,
+    createInitialCategoryFormState(),
+    formData,
+  );
+}

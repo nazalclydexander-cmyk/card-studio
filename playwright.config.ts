@@ -44,7 +44,7 @@ export default defineConfig({
     },
     {
       name: "desktop-chromium",
-      testIgnore: [/admin\.spec\.ts/, /admin-auth\.setup\.ts/],
+      testIgnore: [/admin(?:-watermark-settings)?\.spec\.ts/, /admin-auth\.setup\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
@@ -52,7 +52,7 @@ export default defineConfig({
     },
     {
       name: "tablet-chromium",
-      testIgnore: [/admin\.spec\.ts/, /admin-auth\.setup\.ts/],
+      testIgnore: [/admin(?:-watermark-settings)?\.spec\.ts/, /admin-auth\.setup\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 768, height: 1024 },
@@ -60,7 +60,7 @@ export default defineConfig({
     },
     {
       name: "mobile-chromium",
-      testIgnore: [/admin\.spec\.ts/, /admin-auth\.setup\.ts/],
+      testIgnore: [/admin(?:-watermark-settings)?\.spec\.ts/, /admin-auth\.setup\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 375, height: 812 },
@@ -97,6 +97,18 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 375, height: 812 },
+        ...(adminCredentials.configured
+          ? { storageState: ".playwright/auth/admin.json" }
+          : {}),
+      },
+    },
+    {
+      name: "admin-watermark-desktop",
+      dependencies: ["setup-admin"],
+      testMatch: /admin-watermark-settings\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
         ...(adminCredentials.configured
           ? { storageState: ".playwright/auth/admin.json" }
           : {}),

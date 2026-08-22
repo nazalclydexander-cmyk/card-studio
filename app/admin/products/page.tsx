@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { toggleProductActiveAction } from "@/app/admin/products/actions";
+import { ProductListActionButtons } from "@/app/admin/products/product-list-action-buttons";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ type ProductRecord = {
     | {
         storage_path: string;
         preview_path: string | null;
+        preview_updated_at: string | null;
         is_primary: boolean;
         sort_order: number;
       }[]
@@ -168,6 +169,7 @@ async function ProductsManagerContent() {
         product_images (
           storage_path,
           preview_path,
+          preview_updated_at,
           is_primary,
           sort_order
         )
@@ -283,33 +285,11 @@ async function ProductsManagerContent() {
                     {createdAtFormatter.format(new Date(product.created_at))}
                   </td>
                   <td className="px-4 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/admin/products/${product.id}/edit`}>
-                          Edit
-                        </Link>
-                      </Button>
-
-                      <form
-                        action={toggleProductActiveAction.bind(
-                          null,
-                          product.id,
-                          !product.active,
-                        )}
-                      >
-                        <Button size="sm" type="submit" variant="secondary">
-                          {product.active ? "Deactivate" : "Activate"}
-                        </Button>
-                      </form>
-
-                      <Button asChild size="sm" variant="destructive">
-                        <Link
-                          href={`/admin/products/${product.id}/edit?danger=delete`}
-                        >
-                          Delete
-                        </Link>
-                      </Button>
-                    </div>
+                    <ProductListActionButtons
+                      productId={product.id}
+                      productName={product.name}
+                      active={product.active}
+                    />
                   </td>
                 </tr>
               );
@@ -371,27 +351,11 @@ async function ProductsManagerContent() {
                   </div>
                 </dl>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/admin/products/${product.id}/edit`}>Edit</Link>
-                  </Button>
-                  <form
-                    action={toggleProductActiveAction.bind(
-                      null,
-                      product.id,
-                      !product.active,
-                    )}
-                  >
-                    <Button size="sm" type="submit" variant="secondary">
-                      {product.active ? "Deactivate" : "Activate"}
-                    </Button>
-                  </form>
-                  <Button asChild size="sm" variant="destructive">
-                    <Link href={`/admin/products/${product.id}/edit?danger=delete`}>
-                      Delete
-                    </Link>
-                  </Button>
-                </div>
+                <ProductListActionButtons
+                  productId={product.id}
+                  productName={product.name}
+                  active={product.active}
+                />
               </CardContent>
             </Card>
           );

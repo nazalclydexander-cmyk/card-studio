@@ -8,6 +8,21 @@ import {
   type ApprovedFontKey,
 } from "@/lib/font-registry";
 import { isValidSiteLogoPath } from "@/lib/site-assets";
+import {
+  DEFAULT_WATERMARK_SETTINGS,
+  WATERMARK_FONT_REGISTRY,
+  clampWatermarkFontScale,
+  clampWatermarkOpacity,
+  clampWatermarkRotation,
+  clampWatermarkSpacing,
+  getApprovedWatermarkFontKey,
+  isWatermarkMode,
+  isValidWatermarkHexColor,
+  normalizeWatermarkHexColor,
+  normalizeWatermarkText,
+  type WatermarkFontKey,
+  type WatermarkMode,
+} from "@/lib/watermark-settings";
 
 export const COLOR_FIELD_OPTIONS = [
   { key: "primary_color", label: "Primary", description: "Buttons and emphasis" },
@@ -89,6 +104,19 @@ export type AppearanceFormValues = {
   show_prices: boolean;
   currency_code: (typeof CURRENCY_OPTIONS)[number]["code"];
   hidden_price_label: string;
+  watermark_enabled: boolean;
+  watermark_text: string;
+  watermark_font: WatermarkFontKey;
+  watermark_mode: WatermarkMode;
+  watermark_color: string;
+  watermark_light_color: string;
+  watermark_dark_color: string;
+  watermark_opacity_percent: number;
+  watermark_rotation_degrees: number;
+  watermark_font_scale_percent: number;
+  watermark_spacing_x_percent: number;
+  watermark_spacing_y_percent: number;
+  watermark_repeat: boolean;
 };
 
 export type AppearanceFieldErrors = Partial<
@@ -105,6 +133,16 @@ export type AppearanceActionResult = {
 export function getFontOptions() {
   return Object.keys(FONT_REGISTRY).map((fontKey) => ({
     value: fontKey as ApprovedFontKey,
+    label: fontKey
+      .split("_")
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(" "),
+  }));
+}
+
+export function getWatermarkFontOptions() {
+  return Object.keys(WATERMARK_FONT_REGISTRY).map((fontKey) => ({
+    value: fontKey as WatermarkFontKey,
     label: fontKey
       .split("_")
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
@@ -226,6 +264,23 @@ export function createAppearanceFormValues(
         (option) => option.code === settings.currency_code,
       )?.code ?? "PHP",
     hidden_price_label: settings.hidden_price_label,
+    watermark_enabled: settings.watermark_enabled,
+    watermark_text: settings.watermark_text,
+    watermark_font:
+      getApprovedWatermarkFontKey(settings.watermark_font) ??
+      DEFAULT_WATERMARK_SETTINGS.watermark_font,
+    watermark_mode: isWatermarkMode(settings.watermark_mode)
+      ? settings.watermark_mode
+      : DEFAULT_WATERMARK_SETTINGS.watermark_mode,
+    watermark_color: settings.watermark_color,
+    watermark_light_color: settings.watermark_light_color,
+    watermark_dark_color: settings.watermark_dark_color,
+    watermark_opacity_percent: Math.round(settings.watermark_opacity * 100),
+    watermark_rotation_degrees: settings.watermark_rotation,
+    watermark_font_scale_percent: Math.round(settings.watermark_font_scale * 100),
+    watermark_spacing_x_percent: settings.watermark_spacing_x,
+    watermark_spacing_y_percent: settings.watermark_spacing_y,
+    watermark_repeat: settings.watermark_repeat,
   };
 }
 
@@ -262,6 +317,25 @@ export function mapAppearanceFormValuesToSiteSettings(
     hidden_price_label: values.hidden_price_label.trim(),
     hero_title: values.hero_title.trim(),
     hero_subtitle: values.hero_subtitle.trim(),
+    watermark_enabled: values.watermark_enabled,
+    watermark_text: normalizeWatermarkText(values.watermark_text),
+    watermark_font:
+      getApprovedWatermarkFontKey(values.watermark_font) ??
+      DEFAULT_WATERMARK_SETTINGS.watermark_font,
+    watermark_mode: isWatermarkMode(values.watermark_mode)
+      ? values.watermark_mode
+      : DEFAULT_WATERMARK_SETTINGS.watermark_mode,
+    watermark_color: normalizeWatermarkHexColor(values.watermark_color),
+    watermark_light_color: normalizeWatermarkHexColor(values.watermark_light_color),
+    watermark_dark_color: normalizeWatermarkHexColor(values.watermark_dark_color),
+    watermark_opacity: clampWatermarkOpacity(values.watermark_opacity_percent / 100),
+    watermark_rotation: clampWatermarkRotation(values.watermark_rotation_degrees),
+    watermark_font_scale: clampWatermarkFontScale(
+      values.watermark_font_scale_percent / 100,
+    ),
+    watermark_spacing_x: clampWatermarkSpacing(values.watermark_spacing_x_percent),
+    watermark_spacing_y: clampWatermarkSpacing(values.watermark_spacing_y_percent),
+    watermark_repeat: values.watermark_repeat,
   };
 }
 
@@ -287,6 +361,7 @@ export function validateAppearanceFormValues(
     hero_title: input.hero_title.trim(),
     hero_subtitle: input.hero_subtitle.trim(),
     hidden_price_label: input.hidden_price_label.trim(),
+    watermark_text: normalizeWatermarkText(input.watermark_text),
     primary_color: normalizeHexColor(input.primary_color),
     secondary_color: normalizeHexColor(input.secondary_color),
     accent_color: normalizeHexColor(input.accent_color),
@@ -296,6 +371,24 @@ export function validateAppearanceFormValues(
     muted_text_color: normalizeHexColor(input.muted_text_color),
     card_radius_px: clampRadius(input.card_radius_px),
     button_radius_px: clampRadius(input.button_radius_px),
+    watermark_color: normalizeWatermarkHexColor(input.watermark_color),
+    watermark_light_color: normalizeWatermarkHexColor(input.watermark_light_color),
+    watermark_dark_color: normalizeWatermarkHexColor(input.watermark_dark_color),
+    watermark_opacity_percent: Math.round(
+      clampWatermarkOpacity(input.watermark_opacity_percent / 100) * 100,
+    ),
+    watermark_rotation_degrees: clampWatermarkRotation(
+      input.watermark_rotation_degrees,
+    ),
+    watermark_font_scale_percent: Math.round(
+      clampWatermarkFontScale(input.watermark_font_scale_percent / 100) * 100,
+    ),
+    watermark_spacing_x_percent: clampWatermarkSpacing(
+      input.watermark_spacing_x_percent,
+    ),
+    watermark_spacing_y_percent: clampWatermarkSpacing(
+      input.watermark_spacing_y_percent,
+    ),
   };
 
   const fieldErrors: AppearanceFieldErrors = {};
@@ -354,6 +447,31 @@ export function validateAppearanceFormValues(
 
   if (!normalizedValues.hidden_price_label) {
     fieldErrors.hidden_price_label = "Hidden price label is required.";
+  }
+
+  if (normalizedValues.watermark_enabled && !normalizedValues.watermark_text) {
+    fieldErrors.watermark_text =
+      "Watermark text is required when watermarking is enabled.";
+  }
+
+  if (!getApprovedWatermarkFontKey(normalizedValues.watermark_font)) {
+    fieldErrors.watermark_font = "Choose an approved watermark font.";
+  }
+
+  if (!isWatermarkMode(normalizedValues.watermark_mode)) {
+    fieldErrors.watermark_mode = "Choose a supported watermark mode.";
+  }
+
+  if (!isValidWatermarkHexColor(normalizedValues.watermark_color)) {
+    fieldErrors.watermark_color = "Use a valid 6-digit hex color.";
+  }
+
+  if (!isValidWatermarkHexColor(normalizedValues.watermark_light_color)) {
+    fieldErrors.watermark_light_color = "Use a valid 6-digit hex color.";
+  }
+
+  if (!isValidWatermarkHexColor(normalizedValues.watermark_dark_color)) {
+    fieldErrors.watermark_dark_color = "Use a valid 6-digit hex color.";
   }
 
   for (const colorField of COLOR_FIELD_OPTIONS) {

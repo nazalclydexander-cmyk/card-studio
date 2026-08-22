@@ -4,6 +4,7 @@ export const PRODUCT_IMAGE_PREVIEWS_BUCKET = "product-previews";
 export const PRODUCT_IMAGE_MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 export const PRODUCT_IMAGE_PREVIEW_MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024;
 export const PRODUCT_IMAGE_PREVIEW_MAX_LONG_EDGE_PX = 1200;
+export const PRODUCT_IMAGE_TEMP_PREVIEW_MAX_LONG_EDGE_PX = 800;
 export const PRODUCT_IMAGE_PREVIEW_FORMAT = "webp";
 export const PRODUCT_IMAGE_PREVIEW_QUALITY = 72;
 
@@ -30,6 +31,7 @@ export type ProductImageRecord = {
   product_id: string;
   storage_path: string;
   preview_path: string | null;
+  preview_updated_at: string | null;
   alt_text: string | null;
   sort_order: number;
   is_primary: boolean;
@@ -126,6 +128,7 @@ export function isValidProductImagePath(storagePath: string) {
 export function getProductImagePublicUrl(
   storagePath: string | null,
   bucket: string,
+  version?: string | null,
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -138,17 +141,24 @@ export function getProductImagePublicUrl(
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/");
+  const baseUrl = `${normalizedBaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`;
 
-  return `${normalizedBaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`;
+  if (!version) {
+    return baseUrl;
+  }
+
+  return `${baseUrl}?v=${encodeURIComponent(version)}`;
 }
 
 export function getProductPreviewPublicUrl(image: {
   preview_path?: string | null;
+  preview_updated_at?: string | null;
 }) {
   if (image.preview_path) {
     return getProductImagePublicUrl(
       image.preview_path,
       PRODUCT_IMAGE_PREVIEWS_BUCKET,
+      image.preview_updated_at ?? null,
     );
   }
 

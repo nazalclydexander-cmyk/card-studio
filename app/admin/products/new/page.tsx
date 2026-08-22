@@ -87,9 +87,14 @@ async function NewProductContent() {
       }))}
       initialValues={defaultProductValues}
       submitLabel="Create product"
+      submitLoadingLabel="Creating..."
       heading="Basic information"
       description="Start with the core product details. The slug will be generated safely from the product name on save."
       cancelHref="/admin/products"
+      confirmTitle="Create this product?"
+      confirmDescription="Review the product details before adding it to the catalog."
+      confirmLabel="Create product"
+      confirmLoadingLabel="Creating..."
     />
   );
 }

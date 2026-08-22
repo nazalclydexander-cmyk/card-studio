@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 
 import { AdminFormSection } from "@/components/admin/admin-form-section";
+import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
 import { AdminNotice } from "@/components/admin/admin-notice";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,9 +31,14 @@ type ProductFormProps = {
   categories: CategoryOption[];
   initialValues: ProductFormValues;
   submitLabel: string;
+  submitLoadingLabel?: string;
   heading: string;
   description: string;
   cancelHref: string;
+  confirmTitle: string;
+  confirmDescription: string;
+  confirmLabel: string;
+  confirmLoadingLabel: string;
 };
 
 function FieldError({ message }: { message?: string }) {
@@ -48,20 +54,62 @@ export function ProductForm({
   categories,
   initialValues,
   submitLabel,
+  submitLoadingLabel = "Saving...",
   heading,
   description,
   cancelHref,
+  confirmTitle,
+  confirmDescription,
+  confirmLabel,
+  confirmLoadingLabel,
 }: ProductFormProps) {
   const [state, formAction, pending] = useActionState(
     action,
     createInitialProductFormState(initialValues),
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmedSubmitRef = useRef(false);
 
   const values = state.values;
   const noCategories = categories.length === 0;
 
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (confirmedSubmitRef.current || pending || noCategories) {
+      return;
+    }
+
+    const form = event.currentTarget;
+
+    if (!form.reportValidity()) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    setConfirmOpen(true);
+  }
+
+  function handleConfirmSubmit() {
+    const form = formRef.current;
+
+    if (!form) {
+      return;
+    }
+
+    confirmedSubmitRef.current = true;
+    setConfirmOpen(false);
+    form.requestSubmit();
+  }
+
   return (
-    <form action={formAction} className="space-y-8">
+    <>
+      <form
+        ref={formRef}
+        action={formAction}
+        className="space-y-8"
+        onSubmit={handleSubmit}
+      >
       {state.message ? (
         <AdminNotice tone="error">
           {state.message}
@@ -248,7 +296,7 @@ export function ProductForm({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button type="submit" disabled={pending || noCategories}>
-              {pending ? "Saving..." : submitLabel}
+              {pending ? submitLoadingLabel : submitLabel}
             </Button>
             <Button asChild variant="outline">
               <Link href={cancelHref}>Cancel</Link>
@@ -256,6 +304,17 @@ export function ProductForm({
           </div>
         </div>
       </div>
-    </form>
+      </form>
+
+      <AdminConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={confirmTitle}
+        description={confirmDescription}
+        confirmLabel={pending ? confirmLoadingLabel : confirmLabel}
+        isLoading={pending}
+        onConfirm={handleConfirmSubmit}
+      />
+    </>
   );
 }

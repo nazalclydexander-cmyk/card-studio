@@ -48,9 +48,14 @@ async function NewCategoryContent() {
       action={createCategoryAction}
       initialValues={defaultCategoryValues}
       submitLabel="Create category"
+      submitLoadingLabel="Creating..."
       heading="Category details"
       description="Create a new catalog category. The slug will be generated safely from the category name on save."
       cancelHref="/admin/categories"
+      confirmTitle="Create this category?"
+      confirmDescription="This category will become available for organizing catalog products."
+      confirmLabel="Create category"
+      confirmLoadingLabel="Creating..."
     />
   );
 }

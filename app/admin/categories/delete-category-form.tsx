@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 
 import { deleteCategoryAction } from "@/app/admin/categories/actions";
+import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
 import {
   createInitialCategoryFormState,
   type CategoryFormState,
@@ -26,12 +27,60 @@ export function DeleteCategoryForm({
     deleteAction,
     createInitialCategoryFormState(),
   );
+  const [clientMessage, setClientMessage] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmedSubmitRef = useRef(false);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (confirmedSubmitRef.current || pending) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const typedName =
+      typeof formData.get("delete_name") === "string"
+        ? formData.get("delete_name")?.toString().trim() ?? ""
+        : "";
+    const confirmed = formData.get("confirm_delete") === "on";
+
+    if (!typedName || typedName !== categoryName || !confirmed) {
+      setClientMessage(
+        "Please confirm deletion and type the category name exactly before deleting.",
+      );
+      return;
+    }
+
+    setClientMessage(null);
+    setConfirmOpen(true);
+  }
+
+  function handleConfirmDelete() {
+    const form = formRef.current;
+
+    if (!form) {
+      return;
+    }
+
+    confirmedSubmitRef.current = true;
+    setConfirmOpen(false);
+    form.requestSubmit();
+  }
 
   return (
-    <form action={formAction} className="space-y-4">
-      {state.message ? (
+    <>
+      <form
+        ref={formRef}
+        action={formAction}
+        className="space-y-4"
+        onSubmit={handleSubmit}
+      >
+      {clientMessage || state.message ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {state.message}
+          {clientMessage ?? state.message}
         </div>
       ) : null}
 
@@ -45,11 +94,15 @@ export function DeleteCategoryForm({
           name="delete_name"
           autoComplete="off"
           placeholder={categoryName}
+          onChange={() => setClientMessage(null)}
         />
       </div>
 
       <label className="flex items-start gap-3 rounded-lg border border-destructive/20 p-4">
-        <Checkbox name="confirm_delete" />
+        <Checkbox
+          name="confirm_delete"
+          onCheckedChange={() => setClientMessage(null)}
+        />
         <span className="space-y-1">
           <span className="block text-sm font-medium">I understand</span>
           <span className="block text-sm text-muted-foreground">
@@ -61,6 +114,18 @@ export function DeleteCategoryForm({
       <Button type="submit" variant="destructive" disabled={pending}>
         {pending ? "Deleting..." : "Delete category"}
       </Button>
-    </form>
+      </form>
+
+      <AdminConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Delete this category?"
+        description={`Are you sure you want to delete "${categoryName}"?`}
+        confirmLabel={pending ? "Deleting..." : "Delete category"}
+        variant="destructive"
+        isLoading={pending}
+        onConfirm={handleConfirmDelete}
+      />
+    </>
   );
 }

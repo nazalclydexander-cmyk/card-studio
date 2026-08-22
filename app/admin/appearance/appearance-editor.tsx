@@ -1,9 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
-import { updateAppearanceSettingsAction } from "@/app/admin/appearance/actions";
+import {
+  regenerateExistingProtectedPreviewsAction,
+  updateAppearanceSettingsAction,
+} from "@/app/admin/appearance/actions";
+import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
 import { AdminNotice } from "@/components/admin/admin-notice";
 import { ProductCard } from "@/components/public/product-card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +20,7 @@ import {
   CURRENCY_OPTIONS,
   DEFAULT_APPEARANCE_FORM_VALUES,
   getFontOptions,
+  getWatermarkFontOptions,
   mapAppearanceFormValuesToSiteSettings,
   type AppearanceFieldErrors,
   type AppearanceFormValues,
@@ -36,14 +41,22 @@ import {
   SITE_LOGO_MAX_FILE_SIZE_BYTES,
 } from "@/lib/site-assets";
 import { getSiteThemeVariables } from "@/lib/site-theme";
+import { getWatermarkFontStack } from "@/lib/watermark-settings";
 
 type AppearanceEditorProps = {
   initialValues: AppearanceFormValues;
 };
 
 type FeedbackState = {
-  tone: "success" | "error";
+  tone: "success" | "error" | "warning" | "info";
   message: string;
+  details?: string[];
+};
+
+type WatermarkPreviewState = {
+  status: "idle" | "loading" | "ready" | "error";
+  url: string | null;
+  message: string | null;
 };
 
 const previewProduct: PublicProduct = {
@@ -121,6 +134,74 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
 }
 
+function RangeField({
+  id,
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  description,
+  error,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix: string;
+  description: string;
+  error?: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-xl border p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-1">
+          <Label htmlFor={id}>{label}</Label>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        <span className="text-sm text-muted-foreground">
+          {value}
+          {suffix}
+        </span>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="w-full"
+      />
+      <FieldError message={error} />
+    </div>
+  );
+}
+
+function buildWatermarkPreviewPayload(values: AppearanceFormValues) {
+  return {
+    watermark_enabled: values.watermark_enabled,
+    watermark_text: values.watermark_text,
+    watermark_font: values.watermark_font,
+    watermark_mode: values.watermark_mode,
+    watermark_color: values.watermark_color,
+    watermark_light_color: values.watermark_light_color,
+    watermark_dark_color: values.watermark_dark_color,
+    watermark_opacity: values.watermark_opacity_percent / 100,
+    watermark_rotation: values.watermark_rotation_degrees,
+    watermark_font_scale: values.watermark_font_scale_percent / 100,
+    watermark_spacing_x: values.watermark_spacing_x_percent,
+    watermark_spacing_y: values.watermark_spacing_y_percent,
+    watermark_repeat: values.watermark_repeat,
+  };
+}
+
 export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
   const [values, setValues] = useState<AppearanceFormValues>(initialValues);
   const [savedValues, setSavedValues] = useState<AppearanceFormValues>(initialValues);
@@ -128,9 +209,19 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isRegenerating, startRegeneration] = useTransition();
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+  const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
+  const [isSubmittingSave, setIsSubmittingSave] = useState(false);
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [removeLogoOnSave, setRemoveLogoOnSave] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [watermarkPreview, setWatermarkPreview] = useState<WatermarkPreviewState>({
+    status: "idle",
+    url: null,
+    message: null,
+  });
+  const watermarkPreviewRequestIdRef = useRef(0);
 
   const selectedLogoPreviewUrl = useMemo(() => {
     if (!selectedLogoFile) {
@@ -147,6 +238,101 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
       }
     };
   }, [selectedLogoPreviewUrl]);
+
+  const watermarkPreviewPayload = useMemo(
+    () => JSON.stringify(buildWatermarkPreviewPayload(values)),
+    [values],
+  );
+
+  useEffect(() => {
+    let isActive = true;
+    const controller = new AbortController();
+    const requestId = watermarkPreviewRequestIdRef.current + 1;
+    watermarkPreviewRequestIdRef.current = requestId;
+    const previewTimer = window.setTimeout(async () => {
+      setWatermarkPreview((current) => ({
+        ...current,
+        status: "loading",
+        message: null,
+      }));
+
+      try {
+        const previewFormData = new FormData();
+        previewFormData.set("watermark_settings", watermarkPreviewPayload);
+
+        const response = await fetch("/api/admin/product-images/preview", {
+          method: "POST",
+          body: previewFormData,
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Preview unavailable");
+        }
+
+        const previewBlob = await response.blob();
+        const previewUrl = URL.createObjectURL(previewBlob);
+
+        if (
+          !isActive ||
+          requestId !== watermarkPreviewRequestIdRef.current
+        ) {
+          URL.revokeObjectURL(previewUrl);
+          return;
+        }
+
+        setWatermarkPreview((current) => {
+          if (current.url) {
+            URL.revokeObjectURL(current.url);
+          }
+
+          return {
+            status: "ready",
+            url: previewUrl,
+            message: null,
+          };
+        });
+      } catch (error) {
+        if (
+          !isActive ||
+          controller.signal.aborted ||
+          requestId !== watermarkPreviewRequestIdRef.current
+        ) {
+          return;
+        }
+
+        setWatermarkPreview((current) => {
+          if (current.url) {
+            URL.revokeObjectURL(current.url);
+          }
+
+          return {
+            status: "error",
+            url: null,
+            message:
+              error instanceof Error
+                ? "The watermark preview could not be generated right now."
+                : "The watermark preview could not be generated right now.",
+          };
+        });
+      }
+    }, 180);
+
+    return () => {
+      isActive = false;
+      controller.abort();
+      window.clearTimeout(previewTimer);
+    };
+  }, [watermarkPreviewPayload]);
+
+  useEffect(() => {
+    return () => {
+      if (watermarkPreview.url) {
+        URL.revokeObjectURL(watermarkPreview.url);
+      }
+    };
+  }, [watermarkPreview.url]);
 
   const hasUnsavedChanges =
     JSON.stringify(values) !== JSON.stringify(savedValues) ||
@@ -169,6 +355,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
     removeLogoOnSave ? null : currentLogoUrl
   );
   const hasStoredLogo = Boolean(savedValues.logo_path);
+  const watermarkFontOptions = useMemo(() => getWatermarkFontOptions(), []);
 
   function updateValue<K extends keyof AppearanceFormValues>(
     key: K,
@@ -227,8 +414,10 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
     setSelectedLogoFile(nextFile);
   }
 
-  function handleSave() {
+  function runSave() {
     setFeedback(null);
+    setSaveConfirmOpen(false);
+    setIsSubmittingSave(true);
 
     startTransition(async () => {
       const supabase = createClient();
@@ -246,6 +435,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
             tone: "error",
             message: "Please choose a supported logo file.",
           });
+          setIsSubmittingSave(false);
           return;
         }
 
@@ -258,6 +448,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
             tone: "error",
             message: "Please choose a smaller logo file.",
           });
+          setIsSubmittingSave(false);
           return;
         }
 
@@ -272,6 +463,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
             tone: "error",
             message: "Please choose a supported logo file.",
           });
+          setIsSubmittingSave(false);
           return;
         }
 
@@ -292,6 +484,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
             message:
               "The logo could not be uploaded right now. Please try again.",
           });
+          setIsSubmittingSave(false);
           return;
         }
       }
@@ -316,6 +509,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
           tone: "error",
           message: result.message,
         });
+        setIsSubmittingSave(false);
         return;
       }
 
@@ -342,6 +536,7 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
         tone: "success",
         message: `Appearance settings saved successfully.${cleanupNotice}`,
       });
+      setIsSubmittingSave(false);
     });
   }
 
@@ -358,6 +553,70 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
     setShowResetConfirm(false);
     clearSelectedLogoFile();
     setRemoveLogoOnSave(false);
+  }
+
+  function runRegenerateExistingPreviews() {
+    if (hasUnsavedChanges || isPending || isRegenerating) {
+      return;
+    }
+
+    setFeedback(null);
+
+    startRegeneration(async () => {
+      const result = await regenerateExistingProtectedPreviewsAction();
+
+      if (result.total === 0) {
+        setFeedback({
+          tone: "info",
+          message: "No existing protected previews were found to regenerate.",
+        });
+        return;
+      }
+
+      if (result.failed === 0) {
+        setFeedback({
+          tone: "success",
+          message: `${result.updated} preview${result.updated === 1 ? "" : "s"} regenerated successfully.`,
+        });
+        return;
+      }
+
+      const details = result.failures.map(
+        (failure) =>
+          `${failure.productName} (${failure.imageId}): ${failure.message}`,
+      );
+
+      if (result.updated > 0) {
+        setFeedback({
+          tone: "warning",
+          message: `${result.updated} of ${result.total} previews regenerated. ${result.failed} failed.`,
+          details,
+        });
+        return;
+      }
+
+      setFeedback({
+        tone: "error",
+        message: `No previews were regenerated. ${result.failed} failed.`,
+        details,
+      });
+    });
+  }
+
+  function handleSaveClick() {
+    if (!hasUnsavedChanges || isPending || isSubmittingSave) {
+      return;
+    }
+
+    setSaveConfirmOpen(true);
+  }
+
+  function handleRegenerateExistingPreviews() {
+    if (hasUnsavedChanges || isPending || isRegenerating) {
+      return;
+    }
+
+    setRegenerateConfirmOpen(true);
   }
 
   return (
@@ -381,8 +640,17 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
         </div>
 
         {feedback ? (
-          <AdminNotice tone={feedback.tone === "success" ? "success" : "error"}>
-            {feedback.message}
+          <AdminNotice tone={feedback.tone}>
+            <div className="space-y-2">
+              <p>{feedback.message}</p>
+              {feedback.details?.length ? (
+                <ul className="list-disc space-y-1 pl-5">
+                  {feedback.details.map((detail) => (
+                    <li key={detail}>{detail}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           </AdminNotice>
         ) : null}
 
@@ -881,6 +1149,260 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
           </div>
         </section>
 
+        <section className="space-y-4 rounded-2xl border bg-background p-6 shadow-sm">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold">Watermark</h2>
+            <p className="text-sm text-muted-foreground">
+              Configure the protection defaults used for future public preview
+              generation. Existing stored previews stay unchanged until you
+              regenerate them intentionally.
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            <label className="flex items-start gap-3 rounded-xl border p-4">
+              <Checkbox
+                checked={values.watermark_enabled}
+                onCheckedChange={(checked) =>
+                  updateValue("watermark_enabled", checked === true)
+                }
+              />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium">
+                  Enable watermark
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  When enabled, new public product previews are rendered with a
+                  permanent burned-in text watermark.
+                </span>
+              </span>
+            </label>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="watermark_text">Watermark text</Label>
+                <Input
+                  id="watermark_text"
+                  value={values.watermark_text}
+                  onChange={(event) =>
+                    updateValue("watermark_text", event.target.value)
+                  }
+                  maxLength={40}
+                  placeholder="PREVIEW"
+                />
+                <FieldError message={fieldErrors.watermark_text} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="watermark_mode">Mode</Label>
+                <select
+                  id="watermark_mode"
+                  value={values.watermark_mode}
+                  onChange={(event) =>
+                    updateValue(
+                      "watermark_mode",
+                      event.target.value as typeof values.watermark_mode,
+                    )
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="adaptive">Adaptive</option>
+                  <option value="manual">Manual</option>
+                </select>
+                <FieldError message={fieldErrors.watermark_mode} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="watermark_font">Font</Label>
+                <select
+                  id="watermark_font"
+                  value={values.watermark_font}
+                  onChange={(event) =>
+                    updateValue(
+                      "watermark_font",
+                      event.target.value as typeof values.watermark_font,
+                    )
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {watermarkFontOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <FieldError message={fieldErrors.watermark_font} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Watermark font preview</Label>
+                <div
+                  className="rounded-xl border px-4 py-3 text-sm"
+                  style={{
+                    fontFamily: getWatermarkFontStack(values.watermark_font),
+                  }}
+                >
+                  {values.watermark_text.trim() || "PREVIEW"}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <ColorField
+                label="Manual color"
+                description="Used directly in Manual mode."
+                value={values.watermark_color}
+                error={fieldErrors.watermark_color}
+                onChange={(nextValue) => updateValue("watermark_color", nextValue)}
+              />
+              <ColorField
+                label="Light watermark color"
+                description="Used on dark artwork in Adaptive mode."
+                value={values.watermark_light_color}
+                error={fieldErrors.watermark_light_color}
+                onChange={(nextValue) =>
+                  updateValue("watermark_light_color", nextValue)
+                }
+              />
+              <ColorField
+                label="Dark watermark color"
+                description="Used on light artwork in Adaptive mode."
+                value={values.watermark_dark_color}
+                error={fieldErrors.watermark_dark_color}
+                onChange={(nextValue) =>
+                  updateValue("watermark_dark_color", nextValue)
+                }
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <RangeField
+                id="watermark_opacity_percent"
+                label="Opacity"
+                value={values.watermark_opacity_percent}
+                min={5}
+                max={50}
+                step={1}
+                suffix="%"
+                description="Controls how subtle or visible the watermark feels."
+                error={fieldErrors.watermark_opacity_percent}
+                onChange={(nextValue) =>
+                  updateValue("watermark_opacity_percent", nextValue)
+                }
+              />
+              <RangeField
+                id="watermark_rotation_degrees"
+                label="Rotation"
+                value={values.watermark_rotation_degrees}
+                min={-60}
+                max={60}
+                step={1}
+                suffix="°"
+                description="Angle applied to each watermark mark."
+                error={fieldErrors.watermark_rotation_degrees}
+                onChange={(nextValue) =>
+                  updateValue("watermark_rotation_degrees", nextValue)
+                }
+              />
+              <RangeField
+                id="watermark_font_scale_percent"
+                label="Size"
+                value={values.watermark_font_scale_percent}
+                min={60}
+                max={180}
+                step={5}
+                suffix="%"
+                description="Scales the watermark text relative to image size."
+                error={fieldErrors.watermark_font_scale_percent}
+                onChange={(nextValue) =>
+                  updateValue("watermark_font_scale_percent", nextValue)
+                }
+              />
+              <RangeField
+                id="watermark_spacing_x_percent"
+                label="Horizontal spacing"
+                value={values.watermark_spacing_x_percent}
+                min={60}
+                max={180}
+                step={5}
+                suffix="%"
+                description="Controls how tightly marks repeat across the width."
+                error={fieldErrors.watermark_spacing_x_percent}
+                onChange={(nextValue) =>
+                  updateValue("watermark_spacing_x_percent", nextValue)
+                }
+              />
+              <RangeField
+                id="watermark_spacing_y_percent"
+                label="Vertical spacing"
+                value={values.watermark_spacing_y_percent}
+                min={60}
+                max={180}
+                step={5}
+                suffix="%"
+                description="Controls how tightly marks repeat down the image."
+                error={fieldErrors.watermark_spacing_y_percent}
+                onChange={(nextValue) =>
+                  updateValue("watermark_spacing_y_percent", nextValue)
+                }
+              />
+
+              <label className="flex items-start gap-3 rounded-xl border p-4">
+                <Checkbox
+                  checked={values.watermark_repeat}
+                  onCheckedChange={(checked) =>
+                    updateValue("watermark_repeat", checked === true)
+                  }
+                />
+                <span className="space-y-1">
+                  <span className="block text-sm font-medium">
+                    Repeat watermark across the image
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    Turn this off to render a single centered watermark mark.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <div className="space-y-3 rounded-xl border p-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-medium">
+                  Apply watermark to existing previews
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Regenerates existing public product previews using the
+                  currently saved watermark settings. Private originals are not
+                  modified.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-start gap-2">
+              <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRegenerateExistingPreviews}
+                  disabled={hasUnsavedChanges || isPending || isRegenerating}
+                >
+                  {isRegenerating
+                    ? "Regenerating previews..."
+                    : "Apply watermark to existing previews"}
+                </Button>
+
+                {hasUnsavedChanges ? (
+                  <p className="text-sm text-muted-foreground">
+                    Save appearance first.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This uses the currently saved watermark settings only.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="sticky bottom-0 z-10 flex flex-col gap-3 rounded-2xl border bg-background/95 p-6 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
@@ -924,15 +1446,15 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
 
               <Button
                 type="button"
-                onClick={handleSave}
-                disabled={isPending || !hasUnsavedChanges}
+                onClick={handleSaveClick}
+                disabled={isPending || isSubmittingSave || !hasUnsavedChanges}
                 style={{
                   backgroundColor: "var(--site-primary)",
                   color: "var(--site-surface)",
                   borderRadius: "var(--site-button-radius)",
                 }}
               >
-                {isPending ? "Saving..." : "Save appearance"}
+                {isPending || isSubmittingSave ? "Saving..." : "Save appearance"}
               </Button>
             </div>
           </div>
@@ -1052,9 +1574,86 @@ export function AppearanceEditor({ initialValues }: AppearanceEditorProps) {
                 interactive={false}
               />
             </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium" style={{ color: "var(--site-muted)" }}>
+                  Watermark preview
+                </p>
+                <p
+                  className="text-xs leading-5"
+                  style={{ color: "var(--site-muted)" }}
+                >
+                  This uses the secure server-side renderer with a temporary
+                  low-resolution sample image. Saving is still separate.
+                </p>
+              </div>
+
+              <div className="overflow-hidden rounded-[calc(var(--site-card-radius)+0.15rem)] border bg-muted/20">
+                <div className="relative aspect-[5/7] w-full">
+                  {watermarkPreview.url ? (
+                    <Image
+                      src={watermarkPreview.url}
+                      alt="Temporary watermark preview"
+                      fill
+                      sizes="(max-width: 1280px) 100vw, 420px"
+                      className="object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                      {watermarkPreview.status === "loading"
+                        ? "Generating preview..."
+                        : watermarkPreview.message ?? "Preview will appear here."}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span className="rounded-full border px-3 py-1">
+                  {values.watermark_mode === "adaptive"
+                    ? "Adaptive contrast mode"
+                    : "Manual color mode"}
+                </span>
+                <span className="rounded-full border px-3 py-1">
+                  {values.watermark_repeat ? "Repeated pattern" : "Single mark"}
+                </span>
+                <span className="rounded-full border px-3 py-1">
+                  Preview long edge: 800px
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </aside>
+
+      <AdminConfirmDialog
+        open={saveConfirmOpen}
+        onOpenChange={setSaveConfirmOpen}
+        title="Save appearance changes?"
+        description="These settings will become the saved defaults used by the storefront and future protected previews."
+        confirmLabel={isPending || isSubmittingSave ? "Saving..." : "Save appearance"}
+        isLoading={isPending || isSubmittingSave}
+        disableClose={isPending || isSubmittingSave}
+        onConfirm={runSave}
+      />
+
+      <AdminConfirmDialog
+        open={regenerateConfirmOpen}
+        onOpenChange={setRegenerateConfirmOpen}
+        title="Apply watermark to existing previews?"
+        description="This will regenerate all existing public product previews from their private originals using the currently saved watermark settings. Clean originals will remain unchanged."
+        confirmLabel={isRegenerating ? "Regenerating..." : "Regenerate previews"}
+        isLoading={isRegenerating}
+        disableClose={isRegenerating}
+        onConfirm={async () => {
+          setRegenerateConfirmOpen(false);
+          runRegenerateExistingPreviews();
+        }}
+      >
+        <p>Existing preview images will be replaced with newly generated protected versions.</p>
+      </AdminConfirmDialog>
     </div>
   );
 }

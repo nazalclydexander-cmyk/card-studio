@@ -483,6 +483,22 @@ export async function deleteProductAction(
   redirect("/admin/products?deleted=1");
 }
 
+export async function deleteProductFromListAction(
+  productId: string,
+  productName: string,
+) {
+  const formData = new FormData();
+  formData.set("confirm_delete", "on");
+  formData.set("delete_name", productName);
+
+  return deleteProductAction(
+    productId,
+    productName,
+    createInitialProductFormState(),
+    formData,
+  );
+}
+
 export async function uploadProtectedProductImagesAction(formData: FormData) {
   if (!(await ensureAdminAccess())) {
     return {

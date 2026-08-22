@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 
+import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
 import { AdminFormSection } from "@/components/admin/admin-form-section";
 import { AdminNotice } from "@/components/admin/admin-notice";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,14 @@ type CategoryFormProps = {
   ) => Promise<CategoryFormState>;
   initialValues: CategoryFormValues;
   submitLabel: string;
+  submitLoadingLabel?: string;
   heading: string;
   description: string;
   cancelHref: string;
+  confirmTitle: string;
+  confirmDescription: string;
+  confirmLabel: string;
+  confirmLoadingLabel: string;
 };
 
 function FieldError({ message }: { message?: string }) {
@@ -40,19 +46,61 @@ export function CategoryForm({
   action,
   initialValues,
   submitLabel,
+  submitLoadingLabel = "Saving...",
   heading,
   description,
   cancelHref,
+  confirmTitle,
+  confirmDescription,
+  confirmLabel,
+  confirmLoadingLabel,
 }: CategoryFormProps) {
   const [state, formAction, pending] = useActionState(
     action,
     createInitialCategoryFormState(initialValues),
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmedSubmitRef = useRef(false);
 
   const values = state.values;
 
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (confirmedSubmitRef.current || pending) {
+      return;
+    }
+
+    const form = event.currentTarget;
+
+    if (!form.reportValidity()) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    setConfirmOpen(true);
+  }
+
+  function handleConfirmSubmit() {
+    const form = formRef.current;
+
+    if (!form) {
+      return;
+    }
+
+    confirmedSubmitRef.current = true;
+    setConfirmOpen(false);
+    form.requestSubmit();
+  }
+
   return (
-    <form action={formAction} className="space-y-8">
+    <>
+      <form
+        ref={formRef}
+        action={formAction}
+        className="space-y-8"
+        onSubmit={handleSubmit}
+      >
       {state.message ? (
         <AdminNotice tone="error">
           {state.message}
@@ -126,7 +174,7 @@ export function CategoryForm({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving..." : submitLabel}
+              {pending ? submitLoadingLabel : submitLabel}
             </Button>
             <Button asChild variant="outline">
               <Link href={cancelHref}>Cancel</Link>
@@ -134,6 +182,17 @@ export function CategoryForm({
           </div>
         </div>
       </div>
-    </form>
+      </form>
+
+      <AdminConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={confirmTitle}
+        description={confirmDescription}
+        confirmLabel={pending ? confirmLoadingLabel : confirmLabel}
+        isLoading={pending}
+        onConfirm={handleConfirmSubmit}
+      />
+    </>
   );
 }

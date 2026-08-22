@@ -24,6 +24,7 @@ export type PublicCategory = {
 export type PublicProductImage = {
   storage_path: string;
   preview_path: string | null;
+  preview_updated_at: string | null;
   alt_text: string | null;
   is_primary: boolean;
   sort_order: number;

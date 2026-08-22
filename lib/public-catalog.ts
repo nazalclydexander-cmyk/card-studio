@@ -50,6 +50,7 @@ const publicProductSelect = `
   images:product_images!product_images_product_id_fkey (
     storage_path,
     preview_path,
+    preview_updated_at,
     alt_text,
     is_primary,
     sort_order,

@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { createClient as createServerClient } from "@/lib/supabase/server";
-import { getSiteSettings } from "@/lib/site-settings";
+import { getLatestSiteSettings } from "@/lib/site-settings";
 import {
   PRODUCT_IMAGE_ALLOWED_MIME_TYPES,
   PRODUCT_IMAGE_MAX_FILE_SIZE_BYTES,
@@ -13,8 +13,11 @@ import {
   getProductImagePublicUrl,
 } from "@/lib/product-images";
 import {
+  type WatermarkSettings,
+  pickWatermarkSettings,
+} from "@/lib/watermark-settings";
+import {
   createProtectedProductPreview,
-  getProductPreviewWatermarkText,
 } from "@/lib/product-image-protection";
 
 export type ProductImageStorageClient = Awaited<
@@ -117,6 +120,74 @@ async function verifyPublicPreviewReachable(previewPath: string | null) {
   }
 }
 
+async function createProtectedPreviewBuffer({
+  sourceBuffer,
+  watermarkSettings,
+}: {
+  sourceBuffer: Buffer;
+  watermarkSettings: WatermarkSettings;
+}) {
+  return createProtectedProductPreview({
+    sourceBuffer,
+    watermarkSettings,
+  });
+}
+
+export async function uploadProtectedProductPreview({
+  supabase,
+  previewPath,
+  sourceBuffer,
+  watermarkSettings,
+  upsert = true,
+}: {
+  supabase: ProductImageStorageClient;
+  previewPath: string;
+  sourceBuffer: Buffer;
+  watermarkSettings: WatermarkSettings;
+  upsert?: boolean;
+}) {
+  const previewBuffer = await createProtectedPreviewBuffer({
+    sourceBuffer,
+    watermarkSettings,
+  });
+
+  const previewUploadError = await uploadStorageObject({
+    supabase,
+    bucket: PRODUCT_IMAGE_PREVIEWS_BUCKET,
+    path: previewPath,
+    body: previewBuffer.buffer,
+    contentType: previewBuffer.contentType,
+    cacheControl: "31536000",
+    upsert,
+  });
+
+  if (previewUploadError) {
+    console.error("Failed to upload product preview image", {
+      bucket: PRODUCT_IMAGE_PREVIEWS_BUCKET,
+      path: previewPath,
+      message: previewUploadError.message,
+    });
+
+    return {
+      success: false as const,
+      message: "The protected preview could not be stored.",
+    };
+  }
+
+  const previewReachable = await verifyPublicPreviewReachable(previewPath);
+
+  if (!previewReachable) {
+    return {
+      success: false as const,
+      message: "The protected preview could not be verified after upload.",
+    };
+  }
+
+  return {
+    success: true as const,
+  };
+}
+
 export async function removeProductImageAssets({
   supabase,
   storagePath,
@@ -207,11 +278,8 @@ export async function uploadProtectedProductImageAssets({
   const previewPath =
     explicitPreviewPath?.trim() ||
     buildProductPreviewImagePath(productId, assetBaseName);
-  const siteSettings = await getSiteSettings();
-  const previewBuffer = await createProtectedProductPreview({
-    sourceBuffer,
-    watermarkText: getProductPreviewWatermarkText(siteSettings.site_name),
-  });
+  const siteSettings = await getLatestSiteSettings();
+  const watermarkSettings = pickWatermarkSettings(siteSettings);
 
   const originalUploadError = await uploadStorageObject({
     supabase,
@@ -236,23 +304,15 @@ export async function uploadProtectedProductImageAssets({
     };
   }
 
-  const previewUploadError = await uploadStorageObject({
+  const previewUploadResult = await uploadProtectedProductPreview({
     supabase,
-    bucket: PRODUCT_IMAGE_PREVIEWS_BUCKET,
-    path: previewPath,
-    body: previewBuffer.buffer,
-    contentType: previewBuffer.contentType,
-    cacheControl: "31536000",
+    previewPath,
+    sourceBuffer,
+    watermarkSettings,
     upsert,
   });
 
-  if (previewUploadError) {
-    console.error("Failed to upload product preview image", {
-      bucket: PRODUCT_IMAGE_PREVIEWS_BUCKET,
-      path: previewPath,
-      message: previewUploadError.message,
-    });
-
+  if (!previewUploadResult.success) {
     await removeProductImageAssets({
       supabase,
       originalStoragePath: originalPath,
@@ -261,22 +321,7 @@ export async function uploadProtectedProductImageAssets({
 
     return {
       success: false,
-      message: "The protected preview could not be stored.",
-    };
-  }
-
-  const previewReachable = await verifyPublicPreviewReachable(previewPath);
-
-  if (!previewReachable) {
-    await removeProductImageAssets({
-      supabase,
-      originalStoragePath: originalPath,
-      previewPath,
-    });
-
-    return {
-      success: false,
-      message: "The protected preview could not be verified after upload.",
+      message: previewUploadResult.message,
     };
   }
 

@@ -138,9 +138,14 @@ async function EditCategoryContent({
         action={boundUpdateAction}
         initialValues={initialValues}
         submitLabel="Save changes"
+        submitLoadingLabel="Saving..."
         heading="Category details"
         description="Update category details. If you change the category name, the slug is regenerated from the new name and safely de-duplicated if needed."
         cancelHref="/admin/categories"
+        confirmTitle="Update this category?"
+        confirmDescription="The category information will be updated across the catalog."
+        confirmLabel="Save changes"
+        confirmLoadingLabel="Saving..."
       />
 
       <Card className="border-destructive/20 shadow-sm">

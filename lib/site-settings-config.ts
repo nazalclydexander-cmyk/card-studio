@@ -1,3 +1,8 @@
+import {
+  DEFAULT_WATERMARK_SETTINGS,
+  type WatermarkSettings,
+} from "@/lib/watermark-settings";
+
 export type SiteSettings = {
   site_name: string;
   tagline: string;
@@ -23,7 +28,7 @@ export type SiteSettings = {
   hidden_price_label: string;
   hero_title: string;
   hero_subtitle: string;
-};
+} & WatermarkSettings;
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   site_name: "Card Studio",
@@ -51,4 +56,5 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   hero_title: "Invitation designs for every meaningful celebration",
   hero_subtitle:
     "Browse elegant, customizable cards for weddings, birthdays, christenings, debuts, and more.",
+  ...DEFAULT_WATERMARK_SETTINGS,
 };
